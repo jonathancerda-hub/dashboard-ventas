@@ -859,10 +859,12 @@ function crearGraficoProductos(productosData) {
 // Gráfico de Líneas Comerciales (Barras Verticales)
 function crearGraficoLineas() {
     const ctx = document.getElementById('grafico-lineas').getContext('2d');
-    
-    const labels = datosLineas.map(item => item.nombre);
-    const dataMeta = datosLineas.map(item => item.meta || 0);
-    const dataVenta = datosLineas.map(item => item.venta || 0);
+    // Usar una copia ordenada por 'meta' descendente para mostrar las barras de mayor a menor por meta
+    const datosLineasSorted = Array.isArray(datosLineas) ? [...datosLineas].sort((a, b) => (b.meta || 0) - (a.meta || 0)) : [];
+
+    const labels = datosLineasSorted.map(item => item.nombre);
+    const dataMeta = datosLineasSorted.map(item => item.meta || 0);
+    const dataVenta = datosLineasSorted.map(item => item.venta || 0);
     
     new Chart(ctx, {
         type: 'bar',

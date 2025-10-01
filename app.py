@@ -609,7 +609,13 @@ def dashboard():
                 current_total = datos_grafico[linea_comercial_nombre].get(dimension_value, 0)
                 datos_grafico[linea_comercial_nombre][dimension_value] = current_total + balance_float
             series_names = sorted(list(dimension_values))
-            y_axis_data = sorted(list(datos_grafico.keys()))
+            # Ordenar y_axis_data por meta descendente si existe en datos_lineas
+            if dimension_field == 'commercial_line_national_id':
+                # Buscar meta por nombre de línea comercial
+                nombre_to_meta = {dl['nombre'].upper(): dl['meta'] for dl in datos_lineas if 'nombre' in dl and 'meta' in dl}
+                y_axis_data = sorted(list(datos_grafico.keys()), key=lambda k: nombre_to_meta.get(k, 0), reverse=True)
+            else:
+                y_axis_data = sorted(list(datos_grafico.keys()))
             series_data = []
             for name in series_names:
                 data_points = [datos_grafico.get(linea, {}).get(name, 0) for linea in y_axis_data]
