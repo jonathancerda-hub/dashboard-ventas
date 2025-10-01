@@ -70,9 +70,10 @@ def limpiar_nombre_atrevia(nombre_producto):
     
     # Lista de palabras que indican tamaño/presentación a eliminar
     tamanos_presentaciones = [
-        'MEDIUM', 'LARGE', 'SMALL', 'EXTRA LARGE', 'XL', 'L', 'M', 'S', 
-        'SPOT ON MEDIUM', 'SPOT ON LARGE', 'SPOT ON SMALL',
-        'SPOT ON', 'CATS SPOT ON MEDIUM', 'CATS SPOT ON LARGE', 'CATS SPOT ON SMALL'
+        'MEDIUM', 'LARGE', 'SMALL', 'MINI', 'EXTRA LARGE', 'XL', 'L', 'M', 'S', 
+        'SPOT ON MEDIUM', 'SPOT ON LARGE', 'SPOT ON SMALL', 'SPOT ON MINI',
+        'CATS SPOT ON MEDIUM', 'CATS SPOT ON LARGE', 'CATS SPOT ON SMALL', 'CATS SPOT ON MINI',
+        'SPOT ON'
     ]
     
     nombre_limpio = nombre_producto.strip()
