@@ -55,6 +55,41 @@ def get_meses_del_año(año):
         meses_disponibles.append({'key': mes_key, 'nombre': mes_nombre})
     return meses_disponibles
 
+def limpiar_nombre_atrevia(nombre_producto):
+    """
+    Limpia los nombres de productos ATREVIA eliminando indicadores de tamaño/presentación.
+    
+    Ejemplos:
+    - ATREVIA ONE MEDIUM → ATREVIA ONE
+    - ATREVIA XR LARGE → ATREVIA XR  
+    - ATREVIA 360° MEDIUM → ATREVIA 360°
+    - ATREVIA TRIO CATS SPOT ON MEDIUM → ATREVIA TRIO CATS
+    """
+    if not nombre_producto or 'ATREVIA' not in nombre_producto.upper():
+        return nombre_producto
+    
+    # Lista de palabras que indican tamaño/presentación a eliminar
+    tamanos_presentaciones = [
+        'MEDIUM', 'LARGE', 'SMALL', 'EXTRA LARGE', 'XL', 'L', 'M', 'S', 
+        'SPOT ON MEDIUM', 'SPOT ON LARGE', 'SPOT ON SMALL',
+        'SPOT ON', 'CATS SPOT ON MEDIUM', 'CATS SPOT ON LARGE', 'CATS SPOT ON SMALL'
+    ]
+    
+    nombre_limpio = nombre_producto.strip()
+    
+    # Procesar solo si contiene ATREVIA
+    if 'ATREVIA' in nombre_limpio.upper():
+        # Ordenar por longitud descendente para procesar primero las frases más largas
+        tamanos_ordenados = sorted(tamanos_presentaciones, key=len, reverse=True)
+        
+        for tamano in tamanos_ordenados:
+            # Buscar y eliminar el tamaño/presentación al final del nombre
+            if nombre_limpio.upper().endswith(' ' + tamano):
+                nombre_limpio = nombre_limpio[:-(len(tamano) + 1)].strip()
+                break
+    
+    return nombre_limpio
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -296,9 +331,11 @@ def dashboard():
                 # Agrupar por producto para Top 7
                 producto_nombre = sale.get('name', '').strip()
                 if producto_nombre:
-                    ventas_por_producto[producto_nombre] = ventas_por_producto.get(producto_nombre, 0) + balance_float
-                    if producto_nombre not in ciclo_vida_por_producto:
-                        ciclo_vida_por_producto[producto_nombre] = ciclo_vida
+                    # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
+                    producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
+                    ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance_float
+                    if producto_nombre_limpio not in ciclo_vida_por_producto:
+                        ciclo_vida_por_producto[producto_nombre_limpio] = ciclo_vida
                 
                 # Agrupar por ciclo de vida para el gráfico de dona
                 ciclo_vida_grafico = ciclo_vida if ciclo_vida else 'No definido'
@@ -479,6 +516,10 @@ def dashboard():
                 continue
 
             producto_nombre = sale.get('name', '').strip()
+            # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
+            if producto_nombre:
+                producto_nombre = limpiar_nombre_atrevia(producto_nombre)
+            
             l1 = sale.get('pharmacological_classification_id')
             l2 = sale.get('administration_way_id')
             l3 = sale.get('production_line_id')
@@ -790,7 +831,9 @@ def dashboard_linea():
                     # Esto se hace para todas las transacciones de la línea, con o sin vendedor
                     producto_nombre = sale.get('name', '').strip()
                     if producto_nombre:
-                        ventas_por_producto[producto_nombre] = ventas_por_producto.get(producto_nombre, 0) + balance
+                        # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
+                        producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
+                        ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
 
                     ciclo_vida = sale.get('product_life_cycle', 'No definido')
                     ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
