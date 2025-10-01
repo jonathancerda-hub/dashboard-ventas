@@ -132,12 +132,20 @@
         <!-- Tabla de Avance por Vendedor -->
         <div class="tabla-container">
             <div class="tabla-header">
-                <h3>Avance por Vendedor - {{ linea_nombre }}</h3>
+                {% if linea_nombre == 'ECOMMERCE' %}
+                    <h3>Ventas por Línea Comercial - {{ linea_nombre }}</h3>
+                {% else %}
+                    <h3>Avance por Vendedor - {{ linea_nombre }}</h3>
+                {% endif %}
             </div>
             <table class="tabla-avance">
                 <thead>
                     <tr>
-                        <th>Vendedor</th>
+                        {% if linea_nombre == 'ECOMMERCE' %}
+                            <th>Línea Comercial</th>
+                        {% else %}
+                            <th>Vendedor</th>
+                        {% endif %}
                         <th>Meta</th>
                         <th>Venta</th>
                         <th>% Cump</th>
