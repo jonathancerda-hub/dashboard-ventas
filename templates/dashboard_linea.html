@@ -104,47 +104,22 @@
         </div>
     </div>
 
-    <!-- Avance diario -->
+    <!-- Avance diario - Solo 4 tarjetas específicas -->
     <div class="avance-diario-grid">
-        <!-- FILA 1 -->
-        <div class="avance-card">
-            <div class="avance-label">Avance Diario</div>
-            <div class="avance-value">{% if kpis.avance_diario_total > 0 %}{{ "{:.1f} %".format(kpis.avance_diario_total) }}{% else %}-{% endif %}</div>
-        </div>
-        
         <div class="avance-card">
             <div class="avance-label">Avance Diario Acumulado</div>
             <div class="avance-value">{% if avance_lineal_pct is defined and avance_lineal_pct > 0 %}{{ "{:.1f} %".format(avance_lineal_pct) }}{% else %}-{% endif %}</div>
         </div>
 
-        {% if fecha_actual is defined and mes_seleccionado == fecha_actual.strftime('%Y-%m') %}
-        <div class="avance-card avance-requerido">
-            <div class="avance-label">Ritmo Diario Requerido de Venta (L-S)</div>
-            <div class="avance-value">{% if kpis.ritmo_diario_requerido > 0 %}{{ "{:.1f} %".format(kpis.ritmo_diario_requerido) }}{% else %}¡Meta Cumplida!{% endif %}</div>
-        </div>
-        {% else %}
-        <div class="avance-card-placeholder"></div>
-        {% endif %}
-
         <div class="avance-card">
-            <div class="avance-label">Avance Diario IPN</div>
-            <div class="avance-value">{% if kpis.avance_diario_ipn > 0 %}{{ "{:.1f} %".format(kpis.avance_diario_ipn) }}{% else %}-{% endif %}</div>
+            <div class="avance-label">Brecha Comercial (S/)</div>
+            <div class="avance-value">{% if faltante_meta is defined and faltante_meta > 0 %}S/ {{ "{:,.0f}".format(faltante_meta) }}{% else %}-{% endif %}</div>
         </div>
 
         <div class="avance-card">
             <div class="avance-label">Avance Diario IPN Acumulado</div>
             <div class="avance-value">{% if avance_lineal_ipn_pct is defined and avance_lineal_ipn_pct > 0 %}{{ "{:.1f} %".format(avance_lineal_ipn_pct) }}{% else %}-{% endif %}</div>
         </div>
-
-        <!-- FILA 2 -->
-        <div class="avance-card">
-            <div class="avance-label">Brecha Comercial (S/)</div>
-            <div class="avance-value">{% if faltante_meta is defined and faltante_meta > 0 %}S/ {{ "{:,.0f}".format(faltante_meta) }}{% else %}-{% endif %}</div>
-        </div>
-
-        <div class="avance-card-spacer"></div>
-        <div class="avance-card-spacer"></div>
-        <div class="avance-card-spacer"></div>
 
         <div class="avance-card">
             <div class="avance-label">Brecha Comercial IPN (S/)</div>
@@ -347,45 +322,50 @@ body {
 /* Avance Diario - Layout agrupado con IPN a la derecha */
 .avance-diario-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr; /* 5 columnas iguales */
-    grid-template-rows: auto auto; /* 2 filas automáticas */
+    grid-template-columns: 1fr 1fr 1fr 1fr; /* 4 columnas iguales para layout 4x1 */
+    grid-template-rows: 1fr; /* 1 sola fila */
     gap: 15px;
-    margin-bottom: 20px;
+    margin-bottom: 15px; /* Reducido de 20px a 15px */
+    max-width: 100%;
+    height: auto;
 }
 
 .avance-card-spacer {
-    /* Espacios vacíos en la segunda fila */
-    visibility: hidden;
+    /* Ya no es necesario - eliminado para layout 4x1 */
+    display: none;
 }
 
 .avance-card-placeholder {
-    /* Placeholder para cuando no hay ritmo diario */
-    visibility: hidden;
+    /* Ya no es necesario - eliminado para layout 4x1 */
+    display: none;
 }
 
 /* Responsividad */
 @media (max-width: 1200px) {
     .avance-diario-grid { 
-        grid-template-columns: repeat(3, 1fr); 
+        grid-template-columns: 1fr 1fr; /* 2x2 en tablets */
+        grid-template-rows: 1fr 1fr;
     }
 }
 
 @media (max-width: 768px) {
     .avance-diario-grid { 
-        grid-template-columns: 1fr; 
-    }
-    .avance-card-spacer {
-        display: none;
+        grid-template-columns: 1fr; /* 1 columna en móviles */
+        grid-template-rows: repeat(4, auto); /* 4 filas para móviles */
     }
 }
 
 .avance-card {
     background: #ecf0f1;
-    padding: 5px 15px; /* Aumentado padding para más espacio interno */
+    padding: 10px 15px; /* Aumentado padding para mejor proporción */
     border-radius: 6px;
     text-align: center;
     height: auto; /* Altura automática basada en contenido */
-    min-height: 30px; /* Altura mínima pequeña */
+    min-height: 70px; /* Aumentado para mejor proporción en grid 4x1 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     transition: none !important;
     transform: none !important;
     animation: none !important;
