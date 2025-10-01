@@ -745,7 +745,7 @@ def dashboard_linea():
         mapeo_nombre_a_id = {
             'PETMEDICA': 'petmedica', 'AGROVET': 'agrovet', 'PET NUTRISCIENCE': 'pet_nutriscience',
             'AVIVET': 'avivet', 'OTROS': 'otros',
-            'GENVET': 'genvet', 'INTERPET': 'interpet',
+            'GENVET': 'genvet', 'INTERPET': 'interpet', 'ECOMMERCE': 'ecommerce',
         }
         linea_seleccionada_id = mapeo_nombre_a_id.get(linea_seleccionada_nombre.upper(), 'petmedica')
 
@@ -1301,6 +1301,7 @@ def metas_vendedor():
         {'nombre': 'OTROS', 'id': 'otros'},
         {'nombre': 'GENVET', 'id': 'genvet'},
         {'nombre': 'INTERPET', 'id': 'interpet'},
+        {'nombre': 'ECOMMERCE', 'id': 'ecommerce'},
     ]
     equipos_definidos = [
         {'id': 'petmedica', 'nombre': 'PETMEDICA'},
@@ -1309,6 +1310,7 @@ def metas_vendedor():
         {'id': 'avivet', 'nombre': 'AVIVET'},
         {'id': 'otros', 'nombre': 'OTROS'},
         {'id': 'interpet', 'nombre': 'INTERPET'},
+        {'id': 'ecommerce', 'nombre': 'ECOMMERCE'},
     ]
 
     # Determinar mes y línea seleccionados (desde form o por defecto)
