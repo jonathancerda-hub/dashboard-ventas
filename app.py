@@ -803,20 +803,21 @@ def dashboard_linea():
         ajustes_sin_vendedor = 0 # Para notas de crédito sin vendedor
         nombres_vendedores_con_ventas = {} # BUGFIX: Guardar nombres de vendedores con ventas
 
-        for sale in sales_data_processed: # Usar los datos pre-filtrados
-            linea_comercial = sale.get('commercial_line_national_id')
-            if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
-                nombre_linea_actual = linea_comercial[1].upper()
-
-                # Filtrar por la línea comercial seleccionada
-                if nombre_linea_actual == linea_seleccionada_nombre.upper():
-                    balance = float(sale.get('balance', 0))
-                    user_info = sale.get('invoice_user_id')
-
-                    # Si hay un vendedor asignado, se procesa normalmente
-                    if user_info and isinstance(user_info, list) and len(user_info) > 1:
-                        vendedor_id = str(user_info[0])
-                        nombres_vendedores_con_ventas[vendedor_id] = user_info[1] # Guardar el nombre
+        # Determinar si es ECOMMERCE para lógica especial
+        if linea_seleccionada_nombre.upper() == 'ECOMMERCE':
+            # Para ECOMMERCE: Filtrar por vendedores del equipo ECOMMERCE
+            equipos_guardados = gs_manager.read_equipos()
+            miembros_ecommerce_ids = {str(vid) for vid in equipos_guardados.get('ecommerce', [])}
+            
+            for sale in sales_data_processed:
+                user_info = sale.get('invoice_user_id')
+                if user_info and isinstance(user_info, list) and len(user_info) > 1:
+                    vendedor_id = str(user_info[0])
+                    
+                    # Solo procesar ventas de vendedores del equipo ECOMMERCE
+                    if vendedor_id in miembros_ecommerce_ids:
+                        balance = float(sale.get('balance', 0))
+                        nombres_vendedores_con_ventas[vendedor_id] = user_info[1]
 
                         # Agrupar ventas totales
                         ventas_por_vendedor[vendedor_id] = ventas_por_vendedor.get(vendedor_id, 0) + balance
@@ -829,25 +830,73 @@ def dashboard_linea():
                         ruta = sale.get('route_id')
                         if isinstance(ruta, list) and len(ruta) > 0 and ruta[0] in [18, 19]:
                             ventas_vencimiento_por_vendedor[vendedor_id] = ventas_vencimiento_por_vendedor.get(vendedor_id, 0) + balance
-                    
-                    # Si NO hay vendedor, se agrupa como un ajuste (ej. Nota de Crédito)
-                    else:
-                        ajustes_sin_vendedor += balance
 
-                    # Agrupar para gráficos (Top Productos, Ciclo Vida, Forma Farmacéutica)
-                    # Esto se hace para todas las transacciones de la línea, con o sin vendedor
-                    producto_nombre = sale.get('name', '').strip()
-                    if producto_nombre:
-                        # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
-                        producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
-                        ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
+                        # Agrupar para gráficos - ECOMMERCE incluye todas las líneas que vende
+                        producto_nombre = sale.get('name', '').strip()
+                        if producto_nombre:
+                            producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
+                            ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
 
-                    ciclo_vida = sale.get('product_life_cycle', 'No definido')
-                    ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
+                        ciclo_vida = sale.get('product_life_cycle', 'No definido')
+                        ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
 
-                    forma_farma = sale.get('pharmaceutical_forms_id')
-                    nombre_forma = forma_farma[1] if forma_farma and len(forma_farma) > 1 else 'Instrumental'
-                    ventas_por_forma[nombre_forma] = ventas_por_forma.get(nombre_forma, 0) + balance
+                        forma_farma = sale.get('pharmaceutical_forms_id')
+                        nombre_forma = forma_farma[1] if forma_farma and len(forma_farma) > 1 else 'Instrumental'
+                        ventas_por_forma[nombre_forma] = ventas_por_forma.get(nombre_forma, 0) + balance
+                
+                # Para ECOMMERCE también procesar ajustes sin vendedor si los hay
+                elif not user_info:
+                    # Solo contar ajustes que pertenezcan a líneas que vende ECOMMERCE
+                    # Por simplicidad, no incluimos ajustes sin vendedor para ECOMMERCE
+                    pass
+        
+        else:
+            # Lógica normal para otras líneas comerciales
+            for sale in sales_data_processed:
+                linea_comercial = sale.get('commercial_line_national_id')
+                if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
+                    nombre_linea_actual = linea_comercial[1].upper()
+
+                    # Filtrar por la línea comercial seleccionada
+                    if nombre_linea_actual == linea_seleccionada_nombre.upper():
+                        balance = float(sale.get('balance', 0))
+                        user_info = sale.get('invoice_user_id')
+
+                        # Si hay un vendedor asignado, se procesa normalmente
+                        if user_info and isinstance(user_info, list) and len(user_info) > 1:
+                            vendedor_id = str(user_info[0])
+                            nombres_vendedores_con_ventas[vendedor_id] = user_info[1] # Guardar el nombre
+
+                            # Agrupar ventas totales
+                            ventas_por_vendedor[vendedor_id] = ventas_por_vendedor.get(vendedor_id, 0) + balance
+
+                            # Agrupar ventas IPN
+                            if sale.get('product_life_cycle') == 'nuevo':
+                                ventas_ipn_por_vendedor[vendedor_id] = ventas_ipn_por_vendedor.get(vendedor_id, 0) + balance
+                            
+                            # Agrupar ventas por vencimiento < 6 meses
+                            ruta = sale.get('route_id')
+                            if isinstance(ruta, list) and len(ruta) > 0 and ruta[0] in [18, 19]:
+                                ventas_vencimiento_por_vendedor[vendedor_id] = ventas_vencimiento_por_vendedor.get(vendedor_id, 0) + balance
+                        
+                        # Si NO hay vendedor, se agrupa como un ajuste (ej. Nota de Crédito)
+                        else:
+                            ajustes_sin_vendedor += balance
+
+                        # Agrupar para gráficos (Top Productos, Ciclo Vida, Forma Farmacéutica)
+                        # Esto se hace para todas las transacciones de la línea, con o sin vendedor
+                        producto_nombre = sale.get('name', '').strip()
+                        if producto_nombre:
+                            # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
+                            producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
+                            ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
+
+                        ciclo_vida = sale.get('product_life_cycle', 'No definido')
+                        ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
+
+                        forma_farma = sale.get('pharmaceutical_forms_id')
+                        nombre_forma = forma_farma[1] if forma_farma and len(forma_farma) > 1 else 'Instrumental'
+                        ventas_por_forma[nombre_forma] = ventas_por_forma.get(nombre_forma, 0) + balance
 
         # --- 4. CONSTRUIR ESTRUCTURA DE DATOS PARA LA PLANTILLA ---
         datos_vendedores = []
@@ -860,7 +909,7 @@ def dashboard_linea():
         # --- 4.1. LÓGICA ESPECIAL PARA ECOMMERCE ---
         if linea_seleccionada_nombre.upper() == 'ECOMMERCE':
             # Para ECOMMERCE: Mostrar líneas comerciales en lugar de vendedores
-            # Obtener vendedores del equipo ECOMMERCE
+            # Ya procesamos las ventas arriba, ahora necesitamos agrupar por líneas comerciales
             equipos_guardados = gs_manager.read_equipos()
             miembros_ecommerce_ids = {str(vid) for vid in equipos_guardados.get('ecommerce', [])}
             
@@ -869,7 +918,7 @@ def dashboard_linea():
             ventas_ipn_por_linea_comercial = {}
             ventas_vencimiento_por_linea_comercial = {}
             
-            # Iterar todas las ventas para encontrar las de vendedores ECOMMERCE
+            # Re-procesar las ventas para agrupar por línea comercial
             for sale in sales_data_processed:
                 user_info = sale.get('invoice_user_id')
                 if user_info and isinstance(user_info, list) and len(user_info) > 1:
