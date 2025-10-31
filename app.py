@@ -97,14 +97,28 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         user_data = data_manager.authenticate_user(username, password)
+        
         if user_data:
-            session['username'] = user_data.get('login', username)
-            session['user_name'] = user_data.get('name', username)
-            flash('¡Inicio de sesión exitoso!', 'success')
-            # Cambio: Redirigir al dashboard principal por defecto
-            return redirect(url_for('dashboard'))
+            # --- Verificación de Lista Blanca ---
+            try:
+                with open('allowed_users.json', 'r') as f:
+                    allowed_emails = json.load(f).get('allowed_emails', [])
+                
+                user_login = user_data.get('login')
+                if user_login and user_login in allowed_emails:
+                    # Usuario autenticado y autorizado
+                    session['username'] = user_login
+                    session['user_name'] = user_data.get('name', username)
+                    flash('¡Inicio de sesión exitoso!', 'success')
+                    return redirect(url_for('dashboard'))
+                else:
+                    # Usuario autenticado pero no autorizado
+                    flash('No tienes permiso para acceder a esta aplicación.', 'warning')
+            except FileNotFoundError:
+                flash('Error de configuración: El archivo de usuarios permitidos no se encuentra.', 'danger')
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
+            
     return render_template('login.html')
 
 @app.route('/logout')
@@ -745,7 +759,7 @@ def dashboard_linea():
         mapeo_nombre_a_id = {
             'PETMEDICA': 'petmedica', 'AGROVET': 'agrovet', 'PET NUTRISCIENCE': 'pet_nutriscience',
             'AVIVET': 'avivet', 'OTROS': 'otros',
-            'GENVET': 'genvet', 'INTERPET': 'interpet', 'ECOMMERCE': 'ecommerce',
+            'GENVET': 'genvet', 'INTERPET': 'interpet',
         }
         linea_seleccionada_id = mapeo_nombre_a_id.get(linea_seleccionada_nombre.upper(), 'petmedica')
 
@@ -803,21 +817,20 @@ def dashboard_linea():
         ajustes_sin_vendedor = 0 # Para notas de crédito sin vendedor
         nombres_vendedores_con_ventas = {} # BUGFIX: Guardar nombres de vendedores con ventas
 
-        # Determinar si es ECOMMERCE para lógica especial
-        if linea_seleccionada_nombre.upper() == 'ECOMMERCE':
-            # Para ECOMMERCE: Filtrar por vendedores del equipo ECOMMERCE
-            equipos_guardados = gs_manager.read_equipos()
-            miembros_ecommerce_ids = {str(vid) for vid in equipos_guardados.get('ecommerce', [])}
-            
-            for sale in sales_data_processed:
-                user_info = sale.get('invoice_user_id')
-                if user_info and isinstance(user_info, list) and len(user_info) > 1:
-                    vendedor_id = str(user_info[0])
-                    
-                    # Solo procesar ventas de vendedores del equipo ECOMMERCE
-                    if vendedor_id in miembros_ecommerce_ids:
-                        balance = float(sale.get('balance', 0))
-                        nombres_vendedores_con_ventas[vendedor_id] = user_info[1]
+        for sale in sales_data_processed: # Usar los datos pre-filtrados
+            linea_comercial = sale.get('commercial_line_national_id')
+            if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
+                nombre_linea_actual = linea_comercial[1].upper()
+
+                # Filtrar por la línea comercial seleccionada
+                if nombre_linea_actual == linea_seleccionada_nombre.upper():
+                    balance = float(sale.get('balance', 0))
+                    user_info = sale.get('invoice_user_id')
+
+                    # Si hay un vendedor asignado, se procesa normalmente
+                    if user_info and isinstance(user_info, list) and len(user_info) > 1:
+                        vendedor_id = str(user_info[0])
+                        nombres_vendedores_con_ventas[vendedor_id] = user_info[1] # Guardar el nombre
 
                         # Agrupar ventas totales
                         ventas_por_vendedor[vendedor_id] = ventas_por_vendedor.get(vendedor_id, 0) + balance
@@ -830,73 +843,25 @@ def dashboard_linea():
                         ruta = sale.get('route_id')
                         if isinstance(ruta, list) and len(ruta) > 0 and ruta[0] in [18, 19]:
                             ventas_vencimiento_por_vendedor[vendedor_id] = ventas_vencimiento_por_vendedor.get(vendedor_id, 0) + balance
+                    
+                    # Si NO hay vendedor, se agrupa como un ajuste (ej. Nota de Crédito)
+                    else:
+                        ajustes_sin_vendedor += balance
 
-                        # Agrupar para gráficos - ECOMMERCE incluye todas las líneas que vende
-                        producto_nombre = sale.get('name', '').strip()
-                        if producto_nombre:
-                            producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
-                            ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
+                    # Agrupar para gráficos (Top Productos, Ciclo Vida, Forma Farmacéutica)
+                    # Esto se hace para todas las transacciones de la línea, con o sin vendedor
+                    producto_nombre = sale.get('name', '').strip()
+                    if producto_nombre:
+                        # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
+                        producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
+                        ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
 
-                        ciclo_vida = sale.get('product_life_cycle', 'No definido')
-                        ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
+                    ciclo_vida = sale.get('product_life_cycle', 'No definido')
+                    ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
 
-                        forma_farma = sale.get('pharmaceutical_forms_id')
-                        nombre_forma = forma_farma[1] if forma_farma and len(forma_farma) > 1 else 'Instrumental'
-                        ventas_por_forma[nombre_forma] = ventas_por_forma.get(nombre_forma, 0) + balance
-                
-                # Para ECOMMERCE también procesar ajustes sin vendedor si los hay
-                elif not user_info:
-                    # Solo contar ajustes que pertenezcan a líneas que vende ECOMMERCE
-                    # Por simplicidad, no incluimos ajustes sin vendedor para ECOMMERCE
-                    pass
-        
-        else:
-            # Lógica normal para otras líneas comerciales
-            for sale in sales_data_processed:
-                linea_comercial = sale.get('commercial_line_national_id')
-                if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
-                    nombre_linea_actual = linea_comercial[1].upper()
-
-                    # Filtrar por la línea comercial seleccionada
-                    if nombre_linea_actual == linea_seleccionada_nombre.upper():
-                        balance = float(sale.get('balance', 0))
-                        user_info = sale.get('invoice_user_id')
-
-                        # Si hay un vendedor asignado, se procesa normalmente
-                        if user_info and isinstance(user_info, list) and len(user_info) > 1:
-                            vendedor_id = str(user_info[0])
-                            nombres_vendedores_con_ventas[vendedor_id] = user_info[1] # Guardar el nombre
-
-                            # Agrupar ventas totales
-                            ventas_por_vendedor[vendedor_id] = ventas_por_vendedor.get(vendedor_id, 0) + balance
-
-                            # Agrupar ventas IPN
-                            if sale.get('product_life_cycle') == 'nuevo':
-                                ventas_ipn_por_vendedor[vendedor_id] = ventas_ipn_por_vendedor.get(vendedor_id, 0) + balance
-                            
-                            # Agrupar ventas por vencimiento < 6 meses
-                            ruta = sale.get('route_id')
-                            if isinstance(ruta, list) and len(ruta) > 0 and ruta[0] in [18, 19]:
-                                ventas_vencimiento_por_vendedor[vendedor_id] = ventas_vencimiento_por_vendedor.get(vendedor_id, 0) + balance
-                        
-                        # Si NO hay vendedor, se agrupa como un ajuste (ej. Nota de Crédito)
-                        else:
-                            ajustes_sin_vendedor += balance
-
-                        # Agrupar para gráficos (Top Productos, Ciclo Vida, Forma Farmacéutica)
-                        # Esto se hace para todas las transacciones de la línea, con o sin vendedor
-                        producto_nombre = sale.get('name', '').strip()
-                        if producto_nombre:
-                            # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
-                            producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
-                            ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance
-
-                        ciclo_vida = sale.get('product_life_cycle', 'No definido')
-                        ventas_por_ciclo_vida[ciclo_vida] = ventas_por_ciclo_vida.get(ciclo_vida, 0) + balance
-
-                        forma_farma = sale.get('pharmaceutical_forms_id')
-                        nombre_forma = forma_farma[1] if forma_farma and len(forma_farma) > 1 else 'Instrumental'
-                        ventas_por_forma[nombre_forma] = ventas_por_forma.get(nombre_forma, 0) + balance
+                    forma_farma = sale.get('pharmaceutical_forms_id')
+                    nombre_forma = forma_farma[1] if forma_farma and len(forma_farma) > 1 else 'Instrumental'
+                    ventas_por_forma[nombre_forma] = ventas_por_forma.get(nombre_forma, 0) + balance
 
         # --- 4. CONSTRUIR ESTRUCTURA DE DATOS PARA LA PLANTILLA ---
         datos_vendedores = []
@@ -906,133 +871,69 @@ def dashboard_linea():
         total_venta_ipn = 0
         total_vencimiento = 0
 
-        # --- 4.1. LÓGICA ESPECIAL PARA ECOMMERCE ---
-        if linea_seleccionada_nombre.upper() == 'ECOMMERCE':
-            # Para ECOMMERCE: Mostrar líneas comerciales en lugar de vendedores
-            # Ya procesamos las ventas arriba, ahora necesitamos agrupar por líneas comerciales
-            equipos_guardados = gs_manager.read_equipos()
-            miembros_ecommerce_ids = {str(vid) for vid in equipos_guardados.get('ecommerce', [])}
-            
-            # Agrupar ventas por línea comercial para vendedores de ECOMMERCE
-            ventas_por_linea_comercial = {}
-            ventas_ipn_por_linea_comercial = {}
-            ventas_vencimiento_por_linea_comercial = {}
-            
-            # Re-procesar las ventas para agrupar por línea comercial
-            for sale in sales_data_processed:
-                user_info = sale.get('invoice_user_id')
-                if user_info and isinstance(user_info, list) and len(user_info) > 1:
-                    vendedor_id = str(user_info[0])
-                    
-                    # Solo procesar si el vendedor pertenece al equipo ECOMMERCE
-                    if vendedor_id in miembros_ecommerce_ids:
-                        linea_comercial = sale.get('commercial_line_national_id')
-                        if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
-                            nombre_linea = linea_comercial[1]
-                            balance = float(sale.get('balance', 0))
-                            
-                            # Agrupar ventas por línea comercial
-                            ventas_por_linea_comercial[nombre_linea] = ventas_por_linea_comercial.get(nombre_linea, 0) + balance
-                            
-                            # Agrupar ventas IPN por línea comercial
-                            if sale.get('product_life_cycle') == 'nuevo':
-                                ventas_ipn_por_linea_comercial[nombre_linea] = ventas_ipn_por_linea_comercial.get(nombre_linea, 0) + balance
-                            
-                            # Agrupar ventas por vencimiento por línea comercial
-                            ruta = sale.get('route_id')
-                            if isinstance(ruta, list) and len(ruta) > 0 and ruta[0] in [18, 19]:
-                                ventas_vencimiento_por_linea_comercial[nombre_linea] = ventas_vencimiento_por_linea_comercial.get(nombre_linea, 0) + balance
-            
-            # Construir datos mostrando líneas comerciales como si fueran vendedores
-            for linea_comercial, venta in ventas_por_linea_comercial.items():
-                venta_ipn = ventas_ipn_por_linea_comercial.get(linea_comercial, 0)
-                vencimiento = ventas_vencimiento_por_linea_comercial.get(linea_comercial, 0)
-                
-                datos_vendedores.append({
-                    'id': f'linea_{linea_comercial.lower().replace(" ", "_")}',
-                    'nombre': linea_comercial,
-                    'meta': 0,  # Las líneas comerciales no tienen metas individuales para ECOMMERCE
-                    'venta': venta,
-                    'porcentaje_avance': 0,
-                    'meta_ipn': 0,
-                    'venta_ipn': venta_ipn,
-                    'porcentaje_avance_ipn': 0,
-                    'vencimiento_6_meses': vencimiento
-                })
-                
-                # Sumar a totales
-                total_venta += venta
-                total_venta_ipn += venta_ipn
-                total_vencimiento += vencimiento
-            
-            # Para ECOMMERCE, usar las metas del equipo (no por línea individual)
-            for vendedor_id in miembros_ecommerce_ids:
-                meta_guardada = metas_del_equipo.get(vendedor_id, {}).get(mes_seleccionado, {})
-                total_meta += float(meta_guardada.get('meta', 0))
-                total_meta_ipn += float(meta_guardada.get('meta_ipn', 0))
+        # --- 4.1. UNIFICAR VENDEDORES ---
+        # Combinar los vendedores oficiales del equipo con los que tuvieron ventas reales en la línea.
+        # Esto asegura que mostremos a todos los miembros del equipo (incluso con 0 ventas)
+        # y también a cualquier otra persona que haya vendido en esta línea sin ser miembro oficial.
+        equipos_guardados = gs_manager.read_equipos()
+        miembros_oficiales_ids = {str(vid) for vid in equipos_guardados.get(linea_seleccionada_id, [])}
+        vendedores_con_ventas_ids = set(ventas_por_vendedor.keys())
         
-        else:
-            # --- 4.2. LÓGICA NORMAL PARA OTRAS LÍNEAS ---
-            # Combinar los vendedores oficiales del equipo con los que tuvieron ventas reales en la línea.
-            equipos_guardados = gs_manager.read_equipos()
-            miembros_oficiales_ids = {str(vid) for vid in equipos_guardados.get(linea_seleccionada_id, [])}
-            vendedores_con_ventas_ids = set(ventas_por_vendedor.keys())
+        todos_los_vendedores_a_mostrar_ids = sorted(list(miembros_oficiales_ids | vendedores_con_ventas_ids))
+
+        # --- 4.2. CONSTRUIR LA TABLA DE VENDEDORES ---
+        for vendedor_id in todos_los_vendedores_a_mostrar_ids:
+            # BUGFIX: Priorizar el nombre de la venta, luego la lista general, y como último recurso el ID.
+            vendedor_nombre = nombres_vendedores_con_ventas.get(vendedor_id, 
+                                todos_los_vendedores.get(vendedor_id, f"Vendedor ID {vendedor_id}"))
+
             
-            todos_los_vendedores_a_mostrar_ids = sorted(list(miembros_oficiales_ids | vendedores_con_ventas_ids))
+            # Obtener ventas (será 0 si es un miembro oficial sin ventas)
+            venta = ventas_por_vendedor.get(vendedor_id, 0)
+            venta_ipn = ventas_ipn_por_vendedor.get(vendedor_id, 0)
+            vencimiento = ventas_vencimiento_por_vendedor.get(vendedor_id, 0)
 
-            # --- 4.3. CONSTRUIR LA TABLA DE VENDEDORES (LÍNEAS NORMALES) ---
-            for vendedor_id in todos_los_vendedores_a_mostrar_ids:
-                # BUGFIX: Priorizar el nombre de la venta, luego la lista general, y como último recurso el ID.
-                vendedor_nombre = nombres_vendedores_con_ventas.get(vendedor_id, 
-                                    todos_los_vendedores.get(vendedor_id, f"Vendedor ID {vendedor_id}"))
+            # Asignar meta SOLO si el vendedor es un miembro oficial del equipo
+            meta = 0
+            meta_ipn = 0
+            if vendedor_id in miembros_oficiales_ids:
+                meta_guardada = metas_del_equipo.get(vendedor_id, {}).get(mes_seleccionado, {})
+                meta = float(meta_guardada.get('meta', 0))
+                meta_ipn = float(meta_guardada.get('meta_ipn', 0))
 
-                
-                # Obtener ventas (será 0 si es un miembro oficial sin ventas)
-                venta = ventas_por_vendedor.get(vendedor_id, 0)
-                venta_ipn = ventas_ipn_por_vendedor.get(vendedor_id, 0)
-                vencimiento = ventas_vencimiento_por_vendedor.get(vendedor_id, 0)
+            # Añadir la fila del vendedor a la tabla
+            datos_vendedores.append({
+                'id': vendedor_id,
+                'nombre': vendedor_nombre,
+                'meta': meta,
+                'venta': venta,
+                'porcentaje_avance': (venta / meta * 100) if meta > 0 else 0,
+                'meta_ipn': meta_ipn,
+                'venta_ipn': venta_ipn,
+                'porcentaje_avance_ipn': (venta_ipn / meta_ipn * 100) if meta_ipn > 0 else 0,
+                'vencimiento_6_meses': vencimiento
+            })
 
-                # Asignar meta SOLO si el vendedor es un miembro oficial del equipo
-                meta = 0
-                meta_ipn = 0
-                if vendedor_id in miembros_oficiales_ids:
-                    meta_guardada = metas_del_equipo.get(vendedor_id, {}).get(mes_seleccionado, {})
-                    meta = float(meta_guardada.get('meta', 0))
-                    meta_ipn = float(meta_guardada.get('meta_ipn', 0))
+            # Sumar a los totales generales de la línea.
+            # La meta solo se suma si fue asignada (es decir, si es miembro oficial).
+            # La venta se suma siempre.
+            total_meta += meta
+            total_venta += venta
+            total_meta_ipn += meta_ipn
+            total_venta_ipn += venta_ipn
+            total_vencimiento += vencimiento
 
-                # Añadir la fila del vendedor a la tabla
-                datos_vendedores.append({
-                    'id': vendedor_id,
-                    'nombre': vendedor_nombre,
-                    'meta': meta,
-                    'venta': venta,
-                    'porcentaje_avance': (venta / meta * 100) if meta > 0 else 0,
-                    'meta_ipn': meta_ipn,
-                    'venta_ipn': venta_ipn,
-                    'porcentaje_avance_ipn': (venta_ipn / meta_ipn * 100) if meta_ipn > 0 else 0,
-                    'vencimiento_6_meses': vencimiento
-                })
-
-                # Sumar a los totales generales de la línea.
-                # La meta solo se suma si fue asignada (es decir, si es miembro oficial).
-                # La venta se suma siempre.
-                total_meta += meta
-                total_venta += venta
-                total_meta_ipn += meta_ipn
-                total_venta_ipn += venta_ipn
-                total_vencimiento += vencimiento
-
-            # --- 4.4. AÑADIR AJUSTES SIN VENDEDOR (solo para líneas normales) ---
-            if ajustes_sin_vendedor != 0:
-                datos_vendedores.append({
-                    'id': 'ajustes',
-                    'nombre': 'Ajustes y Notas de Crédito (Sin Vendedor)',
-                    'meta': 0, 'venta': ajustes_sin_vendedor, 'porcentaje_avance': 0,
-                    'meta_ipn': 0, 'venta_ipn': 0, 'porcentaje_avance_ipn': 0,
-                    'vencimiento_6_meses': 0
-                })
-                # Sumar los ajustes al total de ventas de la línea
-                total_venta += ajustes_sin_vendedor
+        # --- 4.3. AÑADIR AJUSTES SIN VENDEDOR ---
+        if ajustes_sin_vendedor != 0:
+            datos_vendedores.append({
+                'id': 'ajustes',
+                'nombre': 'Ajustes y Notas de Crédito (Sin Vendedor)',
+                'meta': 0, 'venta': ajustes_sin_vendedor, 'porcentaje_avance': 0,
+                'meta_ipn': 0, 'venta_ipn': 0, 'porcentaje_avance_ipn': 0,
+                'vencimiento_6_meses': 0
+            })
+            # Sumar los ajustes al total de ventas de la línea
+            total_venta += ajustes_sin_vendedor
 
         # Añadir porcentaje sobre el total a cada vendedor
         if total_venta > 0:
@@ -1414,7 +1315,6 @@ def metas_vendedor():
         {'nombre': 'OTROS', 'id': 'otros'},
         {'nombre': 'GENVET', 'id': 'genvet'},
         {'nombre': 'INTERPET', 'id': 'interpet'},
-        {'nombre': 'ECOMMERCE', 'id': 'ecommerce'},
     ]
     equipos_definidos = [
         {'id': 'petmedica', 'nombre': 'PETMEDICA'},
@@ -1423,7 +1323,6 @@ def metas_vendedor():
         {'id': 'avivet', 'nombre': 'AVIVET'},
         {'id': 'otros', 'nombre': 'OTROS'},
         {'id': 'interpet', 'nombre': 'INTERPET'},
-        {'id': 'ecommerce', 'nombre': 'ECOMMERCE'},
     ]
 
     # Determinar mes y línea seleccionados (desde form o por defecto)
