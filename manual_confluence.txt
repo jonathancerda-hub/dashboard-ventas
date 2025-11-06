@@ -1,0 +1,125 @@
+h1. 📖 Manual Interactivo - Dashboard de Ventas
+
+{toc}
+
+{anchor:introduccion}
+h1. Introducción al Dashboard de Ventas
+Este manual describe el funcionamiento del Dashboard de Ventas, explicando cómo se obtienen, procesan y visualizan los datos desde el sistema Odoo. El objetivo es proporcionar una herramienta clara y precisa para el seguimiento del avance de ventas.
+
+{anchor:obtencion-datos}
+h2. 1. Obtención de Datos (desde Odoo)
+La aplicación se conecta a Odoo para consultar las líneas de asientos contables ({{account.move.line}}). Estos datos iniciales se enriquecen con información de otros modelos relacionados para obtener una vista completa de cada transacción.
+* *Asientos Contables ({panel}account.move{panel}):* Fecha, estado, vendedor, etc.
+* *Productos ({panel}product.product{panel}):* Nombre, línea comercial, ciclo de vida, etc.
+* *Clientes ({panel}res.partner{panel}):* Nombre, NIF/RUC.
+* *Órdenes de Venta ({panel}sale.order{panel}):* Origen, observaciones de entrega.
+
+{anchor:filtros-odoo}
+h2. 2. Filtros Aplicados en la Consulta a Odoo
+Para asegurar que solo se procesen datos relevantes, se aplican los siguientes filtros directamente en la consulta a la base de datos de Odoo:
+
+{panel:title=Filtros en la Consulta}
+*Tipo de Movimiento:* Solo facturas de venta y notas de crédito ({{out_invoice}}, {{out_refund}}).
+*Estado del Movimiento:* Solo asientos contables ya publicados ({{state = 'posted'}}).
+*Código de Producto:* Se excluyen productos que no tienen una referencia interna ({{default_code != False}}).
+*Categorías Excluidas:* Se omiten productos de categorías específicas de servicio o internas (IDs: {{[315, 333, 304, 314, 318, 339]}}).
+*Impuestos:* Solo se incluyen líneas que tengan aplicados los impuestos "IGV" o "IGV_INC".
+{panel}
+
+{anchor:logica-app}
+h2. 3. Procesamiento y Lógica de Negocio (en la Aplicación)
+Una vez que los datos son obtenidos de Odoo, la aplicación Flask aplica una serie de reglas de negocio para prepararlos antes de mostrarlos en el dashboard.
+
+{anchor:logica-inversion}
+h3. 3.1 Inversión del Saldo ({{balance}})
+El campo {{balance}} de Odoo se multiplica por -1. Esto es crucial para la correcta interpretación de los datos:
+* Las *ventas*, que en contabilidad son un saldo negativo, se convierten en *positivas*.
+* Las *notas de crédito*, que son un saldo positivo, se convierten en *negativas*.
+
+{note}
+*Importante:* Gracias a este paso, el resto de la aplicación trabaja con números intuitivos y no necesita aplicar la función {{abs()}}.
+{note}
+
+{anchor:logica-exclusion}
+h3. 3.2 Exclusión de Ventas Internacionales
+Se descartan todas las líneas de venta que pertenecen a operaciones internacionales para enfocar el análisis en el mercado local. El filtro se aplica si:
+* La línea comercial ({{commercial_line_national_id}}) contiene "VENTA INTERNACIONAL".
+* El canal de venta ({{sales_channel_id}}) contiene "VENTA INTERNACIONAL" o "INTERNACIONAL".
+
+{anchor:logica-agrupacion}
+h3. 3.3 Agrupación de Datos
+Finalmente, los datos ya filtrados y procesados se agrupan para alimentar los diferentes componentes visuales del dashboard. Los cálculos más importantes son:
+
+{panel}
+* *Venta Total:* Suma del {{balance}} de todas las ventas filtradas.
+* *Venta IPN (Productos Nuevos):* Suma del {{balance}} de las ventas de productos cuyo "Ciclo de vida del producto" es exactamente {{'nuevo'}}.
+* *Vencimiento < 6 Meses:* Suma del {{balance}} de las ventas cuya "Ruta" en la línea de pedido tiene el ID {{18}} ('3 > P < 6') o {{19}} ('1 ≥ P ≤ 3').
+{panel}
+
+{anchor:dashboard}
+h2. 4. Uso del Dashboard
+El dashboard principal es la primera página que verás después de iniciar sesión. Permite visualizar el avance de ventas de un mes específico. Puedes cambiar de mes usando el selector en la parte superior y los KPIs y gráficos se actualizarán automáticamente.
+* *Personalización:* El nombre del usuario que ha iniciado sesión se muestra debajo del título principal para una experiencia más personal.
+* *Navegación:* Desde aquí puedes acceder a las demás secciones como "Ventas", "Metas por Línea" y "Metas por Vendedor".
+* *Exportación:* Puedes exportar el detalle completo de los datos del mes seleccionado a un archivo Excel.
+
+{anchor:dashboard-interactivo}
+h3. 4.1 Gráficos Interactivos y Análisis Jerárquico
+El dashboard principal ahora incluye gráficos dinámicos que están conectados entre sí para un análisis más profundo:
+* *Análisis Jerárquico de Ventas:* Este gráfico de barras te permite "profundizar" en tus datos. Al hacer clic en una barra (ej. una clasificación farmacológica), el gráfico se actualizará para mostrar el siguiente nivel de detalle (ej. las vías de administración para esa clasificación). Puedes usar el botón "Volver" dentro del gráfico para regresar al nivel anterior.
+* *Gráficos Conectados:* A medida que navegas por el gráfico jerárquico, los gráficos *"Top 7 Productos Más Vendidos"* y *"Venta por Clasificación Farmacológica"* se actualizarán automáticamente para mostrar los datos correspondientes al nivel que estás visualizando. Esto te permite ver, por ejemplo, cuáles son los productos más vendidos de una vía de administración específica dentro de una clasificación farmacológica.
+
+{note}
+Esta funcionalidad convierte el dashboard en una herramienta de exploración de datos, permitiéndote descubrir patrones y tendencias de forma intuitiva.
+{note}
+
+{anchor:dashboard-apilado}
+h3. 4.2 Gráfico de Ventas por Clasificación Comercial
+Este nuevo gráfico de barras apiladas te permite analizar la composición de las ventas de cada línea comercial según diferentes criterios.
+* *Eje Vertical (Y):* Muestra las principales líneas comerciales (Petmedica, Agrovet, etc.).
+* *Eje Horizontal (X):* Representa el total de ventas.
+* *Barras Apiladas:* Cada barra de una línea comercial está segmentada por colores, donde cada color representa una subcategoría.
+
+h4. Uso del Selector de Dimensión
+En la esquina superior derecha del gráfico encontrarás un menú desplegable. Este menú te permite cambiar dinámicamente la dimensión por la cual se apilan las barras. Puedes elegir entre:
+* Forma Farmacéutica
+* Clasificación Farmacologica
+* Vía de Administración
+* Categoría de Producto
+* Línea de Producción
+
+{note}
+Al seleccionar una nueva dimensión, el gráfico se redibujará automáticamente para reflejar la nueva estructura de datos, permitiéndote un análisis flexible y detallado de la composición de las ventas.
+{note}
+
+{anchor:metas}
+h2. 5. Gestión de Metas
+La aplicación centraliza toda la gestión de metas y equipos en una *única hoja de cálculo de Google Sheets*, la cual se administra a través de dos interfaces en la aplicación web. Esto permite una gestión de datos centralizada y colaborativa.
+
+h3. Metas por Línea
+Esta sección te permite establecer los objetivos de venta *generales* para cada línea comercial para un mes específico. Estos valores son los que se usan en el dashboard principal para calcular los porcentajes de avance globales. Los datos se guardan en la pestaña {{MetasPorLinea}} de tu Google Sheet.
+
+h3. Metas Vendedor (Gestión de Metas y Equipos)
+Esta es la sección principal para la gestión detallada. Aquí puedes organizar a tus vendedores en equipos y asignarles metas individuales para cada mes del año en una vista de tabla dinámica. Los datos se guardan en las pestañas {{Equipos}} y {{Metas}} de tu Google Sheet, donde cada vendedor asignado a un equipo tiene su propia fila para mayor claridad.
+* *Asignar Vendedores:* Usa el selector "Asignar Vendedores" para añadir o quitar miembros de un equipo. Luego, presiona el botón *"Actualizar Miembros"*. Esta acción guarda la nueva lista de integrantes en Google Sheets y recarga la página para que puedas ver las filas de los nuevos vendedores y asignarles sus metas.
+* *Ingresar Metas:* En la tabla, puedes ingresar la "Meta" total y la meta "IPN" para cada vendedor en la celda correspondiente a cada mes. Los campos numéricos aceptan separadores de miles para facilitar la lectura.
+* *Guardar Cambios:* Una vez que hayas ingresado todas las metas, presiona el botón *"Guardar Todas las Metas y Equipos"* al final de la página para almacenar todos los cambios en Google Sheets.
+
+{note}
+*Importante:* Toda la información de metas y equipos ahora reside en tu Google Sheet, eliminando la necesidad de archivos {{.json}} locales para esta tarea.
+{note}
+
+{anchor:dashboard-vendedor}
+h2. 6. Dashboard por Vendedor
+Al hacer clic en una línea comercial en la tabla del dashboard principal, se accede a una vista detallada centrada en el rendimiento de los vendedores para esa línea específica.
+* *Filtros Dinámicos:* Puedes cambiar de mes y de línea comercial directamente desde esta vista.
+* *Tabla de Avance por Vendedor:* Muestra un desglose del rendimiento de cada vendedor, incluyendo su meta, venta, avance IPN y la columna de "Vencimiento < 6 Meses".
+* *Gráficos Comparativos:* Incluye un gráfico de barras "Meta vs. Venta por Vendedor" para un análisis visual rápido del cumplimiento de objetivos.
+
+{anchor:vista-ventas}
+h2. 7. Vista de Líneas de Venta
+La página de "Ventas" ha sido optimizada para ser más rápida y fácil de usar.
+* *Carga Rápida:* La página ya no carga datos al entrar. La tabla aparecerá vacía inicialmente, garantizando una carga instantánea.
+* *Búsqueda a Demanda:* Los datos se obtienen únicamente cuando presionas el botón *"Buscar"*.
+* *Búsqueda sin Filtros:* Si haces clic en "Buscar" sin especificar un rango de fechas, la tabla mostrará automáticamente los datos de los últimos 30 días.
+* *Filtros Simplificados:* Se ha eliminado el filtro por cliente para simplificar la interfaz y centrarse en los filtros más importantes (fechas y línea comercial).
