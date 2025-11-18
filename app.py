@@ -10,6 +10,8 @@ import json
 import io
 import calendar
 from datetime import datetime, timedelta
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
 
 load_dotenv()
 app = Flask(__name__)
@@ -1268,6 +1270,7 @@ def metas_vendedor():
 
 @app.route('/export/dashboard/details')
 def export_dashboard_details():
+    """Exporta los detalles del dashboard a un archivo Excel formateado."""
     if 'username' not in session:
         return redirect(url_for('login'))
 
@@ -1278,11 +1281,19 @@ def export_dashboard_details():
             flash('No se especificó un mes para la exportación.', 'danger')
             return redirect(url_for('dashboard'))
 
-        # Calcular fechas para el mes seleccionado
+        # --- Lógica de Fechas (incluyendo filtro de día) ---
         año_sel, mes_sel = mes_seleccionado.split('-')
         fecha_inicio = f"{año_sel}-{mes_sel}-01"
-        ultimo_dia = calendar.monthrange(int(año_sel), int(mes_sel))[1]
-        fecha_fin = f"{año_sel}-{mes_sel}-{ultimo_dia}"
+
+        # Usar el día del parámetro si está disponible, si no, el último día del mes
+        dia_fin_param = request.args.get('dia_fin')
+        if dia_fin_param and dia_fin_param.isdigit():
+            dia_fin = int(dia_fin_param)
+            fecha_fin = f"{año_sel}-{mes_sel}-{str(dia_fin).zfill(2)}"
+        else:
+            # Comportamiento por defecto: mes completo
+            ultimo_dia = calendar.monthrange(int(año_sel), int(mes_sel))[1]
+            fecha_fin = f"{año_sel}-{mes_sel}-{ultimo_dia}"
 
         # Obtener datos de ventas reales desde Odoo para ese mes
         sales_data = data_manager.get_sales_lines(
@@ -1307,19 +1318,126 @@ def export_dashboard_details():
             
             sales_data_filtered.append(sale)
 
-        # Convertir el balance a positivo para que coincida con el dashboard
-        for sale in sales_data_filtered:
-            if 'balance' in sale and sale['balance'] is not None:
-                sale['balance'] = float(sale['balance']) # Ya viene con el signo correcto desde OdooManager
+        # --- Procesar datos para un formato legible en Excel ---
+        processed_for_excel = []
+        for record in sales_data_filtered:
+            processed_record = {}
+            for key, value in record.items():
+                # Si el valor es una lista como [id, 'nombre'], extrae solo el nombre
+                if isinstance(value, list) and len(value) > 1:
+                    processed_record[key] = value[1]
+                else:
+                    processed_record[key] = value
+            
+            # Asegurar que el balance sea un número para el formato de moneda
+            if 'balance' in processed_record:
+                try:
+                    processed_record['balance'] = float(processed_record['balance'])
+                except (ValueError, TypeError):
+                    processed_record['balance'] = 0.0
+            
+            processed_for_excel.append(processed_record)
 
-        # Crear DataFrame de Pandas con los datos filtrados
-        df = pd.DataFrame(sales_data_filtered)
+        # Crear DataFrame de Pandas con los datos ya procesados
+        df = pd.DataFrame(processed_for_excel)
 
+        # --- TRADUCCIÓN Y ORDEN DE COLUMNAS ---
+        column_translations = {
+            'invoice_date': 'Fecha Factura',
+            'l10n_latam_document_type_id': 'Tipo Documento',
+            'move_name': 'Número Documento',
+            'partner_name': 'Cliente',
+            'vat': 'RUC/DNI Cliente',
+            'invoice_user_id': 'Vendedor',
+            'default_code': 'Código Producto',
+            'name': 'Descripción Producto',
+            'quantity': 'Cantidad',
+            'price_unit': 'Precio Unitario',
+            'balance': 'Importe Total',
+            'commercial_line_national_id': 'Línea Comercial',
+            'sales_channel_id': 'Canal de Venta',
+            'payment_state': 'Estado de Pago',
+            'invoice_origin': 'Documento Origen',
+            'product_life_cycle': 'Ciclo de Vida Producto',
+            'pharmacological_classification_id': 'Clasificación Farmacológica',
+            'pharmaceutical_forms_id': 'Forma Farmacéutica',
+            'administration_way_id': 'Vía de Administración',
+            'production_line_id': 'Línea de Producción',
+            'categ_id': 'Categoría de Producto',
+            'route_id': 'Ruta de Venta'
+        }
+
+        # Filtrar el DataFrame para mantener solo las columnas que vamos a usar
+        df = df[list(column_translations.keys())]
+
+        # Renombrar las columnas
+        df.rename(columns=column_translations, inplace=True)
+        
+        # El orden de las columnas en el Excel será el mismo que en el diccionario
+        # --- FIN DE TRADUCCIÓN Y ORDEN ---
+
+        # --- Creación y Formateo del Archivo Excel ---
         # Crear archivo Excel en memoria
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name=f'Detalle Ventas {mes_seleccionado}', index=False)
+            sheet_name = f'Detalle Ventas {mes_seleccionado}'
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            # Obtener el workbook y la worksheet para aplicar estilos
+            workbook = writer.book
+            worksheet = writer.sheets[sheet_name]
+
+            # --- Definir Estilos ---
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="875A7B", end_color="875A7B", fill_type="solid")
+            currency_format = 'S/ #,##0.00;[Red]-S/ #,##0.00'
+            date_format = 'YYYY-MM-DD'
+            number_format = '#,##0'
+
+            # --- Aplicar Estilos al Encabezado ---
+            for cell in worksheet[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+
+            # --- Aplicar Formato a Columnas y Ajustar Ancho ---
+            for col_idx, column in enumerate(df.columns, 1):
+                col_letter = get_column_letter(col_idx)
+                max_length = 0
+                
+                # Encontrar el ancho máximo
+                if len(df[column]) > 0:
+                    max_length = max(df[column].astype(str).map(len).max(), len(column)) + 2
+                else:
+                    max_length = len(column) + 2
+                
+                worksheet.column_dimensions[col_letter].width = max_length
+
+                # Aplicar formato a celdas específicas
+                if column.lower() == 'balance':
+                    for cell in worksheet[col_letter][1:]:
+                        cell.number_format = currency_format
+                elif column.lower() == 'price_unit':
+                    for cell in worksheet[col_letter][1:]:
+                        cell.number_format = currency_format
+                elif column.lower() == 'quantity':
+                    for cell in worksheet[col_letter][1:]:
+                        cell.number_format = number_format
+                elif 'date' in column.lower():
+                    for cell in worksheet[col_letter][1:]:
+                        # Convertir texto a objeto datetime si es necesario
+                        if isinstance(cell.value, str):
+                            try:
+                                cell.value = datetime.strptime(cell.value, '%Y-%m-%d')
+                            except ValueError:
+                                pass # Dejar como texto si no se puede convertir
+                        cell.number_format = date_format
+
+            # --- Congelar Panel Superior ---
+            worksheet.freeze_panes = 'A2'
+
+        # Mover el cursor al inicio del stream para enviarlo
         output.seek(0)
+        # --- Fin del Formateo ---
 
         # Generar nombre de archivo
         filename = f'detalle_ventas_{mes_seleccionado}.xlsx'
