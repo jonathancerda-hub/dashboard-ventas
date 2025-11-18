@@ -195,41 +195,15 @@
         </div>
     </div>
 
-    <!-- Fila para el nuevo gráfico de Líneas Comerciales -->
-    <div class="grafico-extra-container">
-        <div class="grafico-echarts">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3>Ventas por Clasificación Comercial</h3>
-                <div style="display: flex; gap: 15px;">
-                    <select id="line-selector" multiple placeholder="Seleccionar líneas..."></select>
-                    <select id="stacked-chart-selector" onchange="updateStackedChart()">
-                        <option value="Forma Farmacéutica">Forma Farmacéutica</option>
-                        <option value="Clasificación Farmacologica">Clasificación Farmacologica</option>
-                        <option value="Vía de Administración">Vía de Administración</option>
-                        <option value="Categoría de Producto">Categoría de Producto</option>
-                        <option value="Línea de Producción">Línea de Producción</option>
-                    </select>
-                </div>
-            </div>
-            <div id="stacked-chart-container" style="width: 100%; height: 500px;"></div>
-        </div>
-    </div>
-
-    <!-- Fila para el nuevo gráfico Drilldown -->
-    <div class="grafico-extra-container">
-        <div class="grafico-echarts">
-            <h3>Análisis Jerárquico de Ventas</h3>
-            <div id="grafico-drilldown" style="width: 100%; height: 400px;"></div>
-        </div>
-    </div>
-
-    <!-- Fila extra para el gráfico de Forma Farmacéutica -->
-    <div class="grafico-extra-container">
-        <div class="grafico-echarts">
-            <h3>Venta por Clasificación Farmacológica</h3>
-            <div id="grafico-forma-farmaceutica" style="width: 100%; height: 350px;"></div>
-        </div>
-    </div>
+    <!-- 
+    GRÁFICOS DESACTIVADOS
+    - Ventas por Clasificación Comercial
+    - Análisis Jerárquico de Ventas
+    - Venta por Clasificación Farmacológica
+    
+    Para reactivarlos, descomenta los bloques 'grafico-extra-container' 
+    y el código JavaScript correspondiente más abajo.
+    -->
 </div>
 
 <style>
@@ -735,12 +709,6 @@ body {
 const datosLineas = {{ datos_lineas|tojson|safe }};
 const datosProductos = {{ datos_productos|tojson|safe }};
 const datosCicloVida = {{ datos_ciclo_vida|tojson|safe }};
-const datosFormaFarmaceutica = {{ datos_forma_farmaceutica|tojson|safe }};
-const drilldownData = {{ drilldown_data|tojson|safe }};
-const drilldownTitles = {{ drilldown_titles|tojson|safe }};
-const topProductsByLevel = {{ top_products_by_level|tojson|safe }};
-const pieChartDataByLevel = {{ pie_chart_data_by_level|tojson|safe }};
-const allStackedChartData = JSON.parse({{ all_stacked_chart_data|tojson|safe }});
 
 // Gráfico de Ciclo de Vida (Donut)
 function crearGraficoCicloVida() {
@@ -921,6 +889,7 @@ function crearGraficoLineas() {
     });
 }
 
+/*
 // Gráfico de Forma Farmacéutica con ECharts
 let clasificacionChart = null; // Instancia global del gráfico
 function crearGraficoFormaFarmaceutica(chartData, title) {
@@ -983,7 +952,9 @@ function crearGraficoFormaFarmaceutica(chartData, title) {
     };
     clasificacionChart.setOption(option, true); // true para limpiar el gráfico anterior
 }
+*/
 
+/*
 // Gráfico Drilldown Jerárquico
 function crearGraficoDrilldown() {
     const chartDom = document.getElementById('grafico-drilldown');
@@ -1105,7 +1076,9 @@ function crearGraficoDrilldown() {
         myChart.setOption(allOptions['root']);
     }
 }
+*/
 
+/*
 // Nuevo gráfico de Barras Apiladas con Selector
 let stackedChart = null;
 let lineSelector = null;
@@ -1179,7 +1152,7 @@ function updateStackedChart() {
 
     stackedChart.setOption(option, true);
 }
-
+*/
 
 // Función para cambiar mes
 function cambiarMes(mesSeleccionado) {
@@ -1191,8 +1164,10 @@ document.addEventListener('DOMContentLoaded', function() {
     crearGraficoCicloVida(); // ECharts
     crearGraficoProductos(); // Chart.js - Carga inicial
     crearGraficoLineas();
-    crearGraficoFormaFarmaceutica(); // ECharts
-    crearGraficoDrilldown(); // ECharts
+
+    // GRÁFICOS DESACTIVADOS
+    // crearGraficoFormaFarmaceutica();
+    // crearGraficoDrilldown();
 
     // --- Flatpickr Initialization ---
     const mesSeleccionado = document.getElementById('mes-selector').value; // "YYYY-MM"
@@ -1218,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
     });
 
+    /*
     // Inicializar selector de líneas para el gráfico apilado
     const allLines = allStackedChartData['Forma Farmacéutica'].yAxis.map(line => ({ value: line, text: line }));
     lineSelector = new TomSelect('#line-selector', {
@@ -1231,6 +1207,7 @@ document.addEventListener('DOMContentLoaded', function() {
     lineSelector.setValue(allLines.map(l => l.value)); // Seleccionar todo por defecto
 
     updateStackedChart(); // Carga inicial del nuevo gráfico
+    */
 });
 </script>
 
