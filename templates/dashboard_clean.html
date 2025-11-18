@@ -175,6 +175,41 @@
 
         </div>
     </div>
+
+    <!-- NUEVA FILA PARA LA TABLA DE ECOMMERCE -->
+    {% if datos_ecommerce %}
+    <div class="tabla-container tabla-ecommerce">
+        <div class="tabla-header">
+            <h3>Avance Equipo ECOMMERCE</h3>
+        </div>
+        <table class="tabla-avance">
+            <thead>
+                <tr>
+                    <th>Vendedor</th>
+                    <th>Meta</th>
+                    <th>Venta</th>
+                    <th>% Cumplimiento</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vendedor in datos_ecommerce %}
+                <tr>
+                    <td>{{ vendedor.nombre }}</td>
+                    <td>{{ "{:,.0f}".format(vendedor.meta) }}</td>
+                    <td>{{ "{:,.0f}".format(vendedor.venta) }}</td>
+                    <td class="porcentaje">{{ "{:.1f}%".format(vendedor.porcentaje_avance) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="fila-total">
+                    <td><strong>Total Equipo</strong></td>
+                    <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
+                    <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.venta_total) }}</strong></td>
+                    <td class="porcentaje"><strong>{{ "{:.1f}%".format(kpis_ecommerce.porcentaje_avance) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
     
     <!-- Fila inferior con gráficos -->
     <div class="graficos-inferiores">

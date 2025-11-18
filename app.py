@@ -511,6 +511,57 @@ def dashboard():
         
         print(f"📈 Ventas por Ciclo de Vida: {datos_ciclo_vida}")
         
+        # --- INICIO: LÓGICA PARA LA TABLA DEL EQUIPO ECOMMERCE ---
+        datos_ecommerce = []
+        kpis_ecommerce = {'meta_total': 0, 'venta_total': 0, 'porcentaje_avance': 0}
+
+        # 1. Obtener miembros y metas del equipo ECOMMERCE
+        equipos_guardados = gs_manager.read_equipos()
+        metas_vendedores_historicas = gs_manager.read_metas()
+        
+        ecommerce_vendor_ids = [str(vid) for vid in equipos_guardados.get('ecommerce', [])]
+        
+        if ecommerce_vendor_ids:
+            # 2. Calcular ventas para los vendedores de ECOMMERCE
+            ventas_por_vendedor_ecommerce = {}
+            todos_los_vendedores = {str(v['id']): v['name'] for v in data_manager.get_all_sellers()}
+
+            for sale in sales_data:
+                user_info = sale.get('invoice_user_id')
+                if user_info and isinstance(user_info, list) and len(user_info) > 1:
+                    vendedor_id = str(user_info[0])
+                    if vendedor_id in ecommerce_vendor_ids:
+                        balance = float(sale.get('balance', 0))
+                        ventas_por_vendedor_ecommerce[vendedor_id] = ventas_por_vendedor_ecommerce.get(vendedor_id, 0) + balance
+
+            # 3. Construir la tabla de datos para ECOMMERCE
+            for vendor_id in ecommerce_vendor_ids:
+                # Obtener meta del vendedor
+                meta_data = metas_vendedores_historicas.get('ecommerce', {}).get(vendor_id, {}).get(mes_seleccionado, {})
+                meta = meta_data.get('meta', 0)
+                
+                # Obtener venta del vendedor
+                venta = ventas_por_vendedor_ecommerce.get(vendor_id, 0)
+                
+                datos_ecommerce.append({
+                    'nombre': todos_los_vendedores.get(vendor_id, f"Vendedor ID {vendor_id}"),
+                    'meta': meta,
+                    'venta': venta,
+                    'porcentaje_avance': (venta / meta * 100) if meta > 0 else 0
+                })
+                
+                kpis_ecommerce['meta_total'] += meta
+                kpis_ecommerce['venta_total'] += venta
+
+            # Calcular el porcentaje de avance total del equipo
+            if kpis_ecommerce['meta_total'] > 0:
+                kpis_ecommerce['porcentaje_avance'] = (kpis_ecommerce['venta_total'] / kpis_ecommerce['meta_total']) * 100
+
+            # Ordenar por venta descendente
+            datos_ecommerce = sorted(datos_ecommerce, key=lambda x: x['venta'], reverse=True)
+
+        # --- FIN: LÓGICA PARA LA TABLA DEL EQUIPO ECOMMERCE ---
+
         # Ordenar los datos de la tabla por venta descendente
         datos_lineas_tabla_sorted = sorted(datos_lineas, key=lambda x: x['venta'], reverse=True)
 
@@ -528,7 +579,9 @@ def dashboard():
                              avance_lineal_pct=avance_lineal_pct,
                              faltante_meta=faltante_meta,
                              avance_lineal_ipn_pct=avance_lineal_ipn_pct,
-                             faltante_meta_ipn=faltante_meta_ipn)
+                             faltante_meta_ipn=faltante_meta_ipn,
+                             datos_ecommerce=datos_ecommerce,
+                             kpis_ecommerce=kpis_ecommerce)
     
     except Exception as e:
         flash(f'Error al obtener datos del dashboard: {str(e)}', 'danger')
@@ -562,7 +615,9 @@ def dashboard():
                              datos_ciclo_vida=[],
                              fecha_actual=fecha_actual,
                              avance_lineal_pct=0,
-                             faltante_meta=0)
+                             faltante_meta=0,
+                             datos_ecommerce=[],
+                             kpis_ecommerce={})
 
 
 @app.route('/dashboard_linea')
