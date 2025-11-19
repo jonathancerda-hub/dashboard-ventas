@@ -100,8 +100,8 @@
         </div>
     </div>
     
-    <!-- FILA PRINCIPAL: TABLA (IZQUIERDA) + GRÁFICO CICLO DE VIDA (DERECHA) -->
-    <div class="main-content-row">
+    <!-- FILA 1: TABLA PRINCIPAL A ANCHO COMPLETO -->
+    <div class="main-table-row">
         <!-- Tabla de líneas comerciales (IZQUIERDA - MÁS ANCHA) -->
         <div class="tabla-container">
             <div class="tabla-header">
@@ -162,53 +162,53 @@
                 </tbody>
             </table>
         </div>
-        
-        <!-- Columna Derecha: Gráfico Donut y KPI Vencimiento -->
-        <div class="columna-derecha">
-            <!-- Gráfico Ciclo de Vida -->
-            <div class="grafico-ciclo-vida">
-                <h3>Venta por tipo de Producto</h3>
-                <div class="donut-container">
-                    <div id="grafico-donut" style="width: 100%; height: 100%;"></div>
-                </div>
+    </div>
+
+    <!-- FILA 2: TABLA ECOMMERCE (IZQUIERDA) + GRÁFICO DONUT (DERECHA) -->
+    <div class="secondary-content-row">
+        <!-- Tabla ECOMMERCE (si hay datos) -->
+        {% if datos_ecommerce %}
+        <div class="tabla-container tabla-ecommerce">
+            <div class="tabla-header">
+                <h3>Avance Equipo ECOMMERCE</h3>
             </div>
+            <table class="tabla-avance">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">Línea Comercial</th>
+                        <th style="width: 25%;">Venta</th>
+                        <th style="width: 12.5%;">Meta</th>
+                        <th style="width: 12.5%;">% Avance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linea in datos_ecommerce %}
+                    <tr>
+                        <td>{{ linea.nombre }}</td>
+                        <td>{{ "{:,.0f}".format(linea.venta) }}</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="fila-total">
+                        <td><strong>Total Equipo</strong></td>
+                        <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.venta_total) }}</strong></td>
+                        <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
+                        <td class="porcentaje"><strong>{{ "{:.1f}%".format(kpis_ecommerce.porcentaje_avance) }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
 
+        <!-- Gráfico Ciclo de Vida (DERECHA) -->
+        <div class="grafico-ciclo-vida">
+            <h3>Venta por tipo de Producto</h3>
+            <div class="donut-container">
+                <div id="grafico-donut" style="width: 100%; height: 100%;"></div>
+            </div>
         </div>
     </div>
-
-    <!-- NUEVA FILA PARA LA TABLA DE ECOMMERCE -->
-    {% if datos_ecommerce %}
-    <div class="tabla-container tabla-ecommerce">
-        <div class="tabla-header">
-            <h3>Avance Equipo ECOMMERCE</h3>
-        </div>
-        <table class="tabla-avance">
-            <thead>
-                <tr>
-                    <th style="width: 50%;">Línea Comercial</th>
-                    <th style="width: 25%;">Venta</th>
-                    <th style="width: 12.5%;">Meta</th>
-                    <th style="width: 12.5%;">% Avance</th>
-            </thead>
-            <tbody>
-                {% for linea in datos_ecommerce %}
-                <tr>
-                    <td>{{ linea.nombre }}</td>
-                    <td>{{ "{:,.0f}".format(linea.venta) }}</td>
-                    <td>-</td>
-                    <td>-</td>
-                </tr>
-                {% endfor %}
-                <tr class="fila-total">
-                    <td><strong>Total Equipo</strong></td>
-                    <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.venta_total) }}</strong></td>
-                    <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
-                    <td class="porcentaje"><strong>{{ "{:.1f}%".format(kpis_ecommerce.porcentaje_avance) }}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
     
     <!-- Fila inferior con gráficos -->
     <div class="graficos-inferiores">
@@ -539,18 +539,17 @@ body {
     animation: none !important;
 }
 
-/* FILA PRINCIPAL - LAYOUT CORRECTO */
-.main-content-row {
+/* FILA 1: Tabla principal a ancho completo */
+.main-table-row {
+    /* No necesita grid, el contenedor de la tabla ocupará el 100% */
+}
+
+/* FILA 2: Tabla Ecommerce y Gráfico Donut */
+.secondary-content-row {
     display: grid;
     grid-template-columns: 2fr 1fr; /* Tabla más ancha (izquierda), gráfico más pequeño (derecha) */
     gap: 25px;
     align-items: start;
-}
-/* Contenedor para la columna derecha */
-.columna-derecha {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
 }
 
 /* Tabla Container (IZQUIERDA) */
@@ -717,7 +716,7 @@ body {
         grid-template-columns: repeat(3, 1fr);
     }
     
-    .main-content-row {
+    .secondary-content-row {
         grid-template-columns: 1fr;
     }
 }
@@ -732,7 +731,7 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
     
-    .main-content-row {
+    .secondary-content-row {
         grid-template-columns: 1fr;
     }
 }
