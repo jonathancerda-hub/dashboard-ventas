@@ -139,6 +139,10 @@ def sales():
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    # --- Lógica de Permisos de Administrador ---
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
+    is_admin = session.get('username') in admin_users
+    
     try:
         # Obtener opciones de filtro
         filter_options = data_manager.get_filter_options()
@@ -195,8 +199,9 @@ def sales():
         return render_template('sales.html', 
                              sales_data=sales_data_filtered,
                              filter_options=filter_options,
-                             selected_filters=selected_filters, # Pass original filters to re-populate form
-                             fecha_actual=datetime.now())
+                             selected_filters=selected_filters,
+                             fecha_actual=datetime.now(),
+                             is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
         flash(f'Error al obtener datos: {str(e)}', 'danger')
@@ -204,7 +209,8 @@ def sales():
                              sales_data=[],
                              filter_options={'lineas': [], 'clientes': []},
                              selected_filters={},
-                             fecha_actual=datetime.now())
+                             fecha_actual=datetime.now(),
+                             is_admin=is_admin) # Pasar el flag a la plantilla
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
@@ -212,6 +218,10 @@ def dashboard():
         return redirect(url_for('login'))
     
     try:
+        # --- Lógica de Permisos de Administrador ---
+        admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
+        is_admin = session.get('username') in admin_users
+
         # Obtener año actual y mes seleccionado
         fecha_actual = datetime.now()
         año_actual = fecha_actual.year
@@ -578,7 +588,8 @@ def dashboard():
                              avance_lineal_ipn_pct=avance_lineal_ipn_pct,
                              faltante_meta_ipn=faltante_meta_ipn,
                              datos_ecommerce=datos_ecommerce,
-                             kpis_ecommerce=kpis_ecommerce)
+                             kpis_ecommerce=kpis_ecommerce,
+                             is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
         flash(f'Error al obtener datos del dashboard: {str(e)}', 'danger')
@@ -614,13 +625,18 @@ def dashboard():
                              avance_lineal_pct=0,
                              faltante_meta=0,
                              datos_ecommerce=[],
-                             kpis_ecommerce={})
+                             kpis_ecommerce={},
+                             is_admin=is_admin) # Pasar el flag a la plantilla
 
 
 @app.route('/dashboard_linea')
 def dashboard_linea():
     if 'username' not in session:
         return redirect(url_for('login'))
+
+    # --- Lógica de Permisos de Administrador ---
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
+    is_admin = session.get('username') in admin_users
 
     try:
         # --- 1. OBTENER FILTROS ---
@@ -947,7 +963,8 @@ def dashboard_linea():
                                avance_lineal_pct=avance_lineal_pct,
                                faltante_meta=faltante_meta,
                                avance_lineal_ipn_pct=avance_lineal_ipn_pct,
-                               faltante_meta_ipn=faltante_meta_ipn)
+                               faltante_meta_ipn=faltante_meta_ipn,
+                               is_admin=is_admin) # Pasar el flag a la plantilla
 
     except Exception as e:
         flash(f'Error al generar el dashboard para la línea: {str(e)}', 'danger')
@@ -981,13 +998,22 @@ def dashboard_linea():
                                avance_lineal_pct=0,
                                faltante_meta=0,
                                avance_lineal_ipn_pct=0,
-                               faltante_meta_ipn=0)
+                               faltante_meta_ipn=0,
+                               is_admin=is_admin) # Pasar el flag a la plantilla
 
 
 @app.route('/meta', methods=['GET', 'POST'])
 def meta():
     if 'username' not in session:
         return redirect(url_for('login'))
+
+    # --- Verificación de Permisos ---
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
+    is_admin = session.get('username') in admin_users
+    if not is_admin:
+        flash('No tienes permiso para acceder a esta página.', 'warning')
+        return redirect(url_for('dashboard'))
+    # --- Fin Verificación ---
     
     try:
         # Líneas comerciales estáticas de la empresa
@@ -1103,7 +1129,8 @@ def meta():
                              mes_nombre=mes_obj_seleccionado['nombre'],
                              total_actual=total_actual,
                              total_ipn_actual=total_ipn_actual,
-                             fecha_actual=fecha_actual)
+                             fecha_actual=fecha_actual,
+                             is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
         flash(f'Error al procesar metas: {str(e)}', 'danger')
@@ -1117,7 +1144,8 @@ def meta():
                              mes_nombre="",
                              total_actual=0,
                              total_ipn_actual=0,
-                             fecha_actual=datetime.now())
+                             fecha_actual=datetime.now(),
+                             is_admin=is_admin) # Pasar el flag a la plantilla
 
 @app.route('/export/excel/sales')
 def export_excel_sales():
@@ -1200,6 +1228,14 @@ def export_excel_sales():
 def metas_vendedor():
     if 'username' not in session:
         return redirect(url_for('login'))
+
+    # --- Verificación de Permisos ---
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
+    is_admin = session.get('username') in admin_users
+    if not is_admin:
+        flash('No tienes permiso para acceder a esta página.', 'warning')
+        return redirect(url_for('dashboard'))
+    # --- Fin Verificación ---
 
     # Obtener meses y líneas comerciales para los filtros
     fecha_actual = datetime.now()
@@ -1318,7 +1354,8 @@ def metas_vendedor():
                            lineas_comerciales=lineas_comerciales_estaticas,
                            equipos_con_vendedores=equipos_con_vendedores,
                            todos_los_vendedores=todos_los_vendedores,
-                           metas_guardadas=metas_guardadas)
+                           metas_guardadas=metas_guardadas,
+                           is_admin=is_admin) # Pasar el flag a la plantilla
 
 @app.route('/export/dashboard/details')
 def export_dashboard_details():
