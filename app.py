@@ -1363,6 +1363,14 @@ def export_dashboard_details():
     if 'username' not in session:
         return redirect(url_for('login'))
 
+    # --- Verificación de Permisos ---
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
+    is_admin = session.get('username') in admin_users
+    if not is_admin:
+        flash('No tienes permiso para realizar esta acción.', 'warning')
+        return redirect(url_for('dashboard'))
+    # --- Fin Verificación ---
+
     try:
         # Obtener el mes seleccionado de los parámetros de la URL
         mes_seleccionado = request.args.get('mes')
