@@ -290,6 +290,16 @@ class OdooManager:
             if linea_id:
                 domain.append(('product_id.commercial_line_national_id', '=', linea_id))
             
+            # Filtro de búsqueda general (nombre de producto, cliente, código, etc.)
+            if search:
+                search_domain = [
+                    '|', ('product_id.name', 'ilike', search),
+                    '|', ('product_id.default_code', 'ilike', search),
+                    '|', ('partner_id.name', 'ilike', search),
+                    ('move_name', 'ilike', search)
+                ]
+                domain.extend(search_domain)
+
             # Obtener líneas base con todos los campos necesarios
             query_options = {
                 'fields': [

@@ -150,14 +150,16 @@ def sales():
         if request.method == 'POST':
             # For POST, get filters from the form
             selected_filters = {
-                'date_from': request.form.get('date_from'),
-                'date_to': request.form.get('date_to')
+                'date_from': request.form.get('date_from') or None,
+                'date_to': request.form.get('date_to') or None,
+                'search_term': request.form.get('search_term') or None
             }
         else:
             # For GET, start with no filters, so defaults will be used
             selected_filters = {
-                'date_from': None,
-                'date_to': None
+                'date_from': request.args.get('date_from') or None,
+                'date_to': request.args.get('date_to') or None,
+                'search_term': request.args.get('search_term') or None
             }
 
         # Create a clean copy for the database query
@@ -174,6 +176,7 @@ def sales():
             date_from=query_filters.get('date_from'),
             date_to=query_filters.get('date_to'),
             partner_id=None,
+            search=query_filters.get('search_term'),
             linea_id=None,
             limit=1000
         )
@@ -563,6 +566,14 @@ def dashboard():
             # 5. Calcular el porcentaje de avance total del equipo
             if kpis_ecommerce['meta_total'] > 0:
                 kpis_ecommerce['porcentaje_avance'] = (kpis_ecommerce['venta_total'] / kpis_ecommerce['meta_total']) * 100
+
+            # 6. Calcular el porcentaje de participación de cada línea sobre el total del equipo
+            if kpis_ecommerce['venta_total'] > 0:
+                for linea_data in datos_ecommerce:
+                    linea_data['porcentaje_sobre_total'] = (linea_data['venta'] / kpis_ecommerce['venta_total']) * 100
+            else:
+                for linea_data in datos_ecommerce:
+                    linea_data['porcentaje_sobre_total'] = 0
 
             # Ordenar las líneas por venta descendente
             datos_ecommerce = sorted(datos_ecommerce, key=lambda x: x['venta'], reverse=True)
