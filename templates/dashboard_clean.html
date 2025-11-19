@@ -185,25 +185,24 @@
         <table class="tabla-avance">
             <thead>
                 <tr>
-                    <th>Vendedor</th>
-                    <th>Meta</th>
-                    <th>Venta</th>
-                    <th>% Cumplimiento</th>
-                </tr>
+                    <th style="width: 50%;">Línea Comercial</th>
+                    <th style="width: 25%;">Venta</th>
+                    <th style="width: 12.5%;">Meta</th>
+                    <th style="width: 12.5%;">% Avance</th>
             </thead>
             <tbody>
-                {% for vendedor in datos_ecommerce %}
+                {% for linea in datos_ecommerce %}
                 <tr>
-                    <td>{{ vendedor.nombre }}</td>
-                    <td>{{ "{:,.0f}".format(vendedor.meta) }}</td>
-                    <td>{{ "{:,.0f}".format(vendedor.venta) }}</td>
-                    <td class="porcentaje">{{ "{:.1f}%".format(vendedor.porcentaje_avance) }}</td>
+                    <td>{{ linea.nombre }}</td>
+                    <td>{{ "{:,.0f}".format(linea.venta) }}</td>
+                    <td>-</td>
+                    <td>-</td>
                 </tr>
                 {% endfor %}
                 <tr class="fila-total">
                     <td><strong>Total Equipo</strong></td>
-                    <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
                     <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.venta_total) }}</strong></td>
+                    <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
                     <td class="porcentaje"><strong>{{ "{:.1f}%".format(kpis_ecommerce.porcentaje_avance) }}</strong></td>
                 </tr>
             </tbody>
@@ -213,7 +212,6 @@
     
     <!-- Fila inferior con gráficos -->
     <div class="graficos-inferiores">
-        <!-- Gráfico de Productos (Barras Horizontales) -->
         <div class="grafico-productos">
             <h3>Top 7 Productos Más Vendidos</h3>
             <div class="chart-container">

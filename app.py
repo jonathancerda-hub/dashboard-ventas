@@ -516,48 +516,45 @@ def dashboard():
         kpis_ecommerce = {'meta_total': 0, 'venta_total': 0, 'porcentaje_avance': 0}
 
         # 1. Obtener miembros y metas del equipo ECOMMERCE
-        equipos_guardados = gs_manager.read_equipos()
-        metas_vendedores_historicas = gs_manager.read_metas()
-        
+        equipos_guardados = gs_manager.read_equipos()        
         ecommerce_vendor_ids = [str(vid) for vid in equipos_guardados.get('ecommerce', [])]
         
         if ecommerce_vendor_ids:
-            # 2. Calcular ventas para los vendedores de ECOMMERCE
-            ventas_por_vendedor_ecommerce = {}
-            todos_los_vendedores = {str(v['id']): v['name'] for v in data_manager.get_all_sellers()}
+            # 2. Obtener la meta total de ECOMMERCE desde las metas por línea
+            meta_ecommerce = metas_del_mes.get('ecommerce', 0)
+            kpis_ecommerce['meta_total'] = meta_ecommerce
 
+            # 3. Calcular ventas del equipo ECOMMERCE, agrupadas por LÍNEA COMERCIAL
+            ventas_por_linea_ecommerce = {}
             for sale in sales_data:
                 user_info = sale.get('invoice_user_id')
                 if user_info and isinstance(user_info, list) and len(user_info) > 1:
                     vendedor_id = str(user_info[0])
+                    # Si la venta pertenece a un vendedor de ECOMMERCE
                     if vendedor_id in ecommerce_vendor_ids:
                         balance = float(sale.get('balance', 0))
-                        ventas_por_vendedor_ecommerce[vendedor_id] = ventas_por_vendedor_ecommerce.get(vendedor_id, 0) + balance
+                        
+                        # Agrupar por línea comercial
+                        linea_info = sale.get('commercial_line_national_id')
+                        linea_nombre = 'N/A'
+                        if linea_info and isinstance(linea_info, list) and len(linea_info) > 1:
+                            linea_nombre = linea_info[1].upper()
+                        
+                        ventas_por_linea_ecommerce[linea_nombre] = ventas_por_linea_ecommerce.get(linea_nombre, 0) + balance
 
-            # 3. Construir la tabla de datos para ECOMMERCE
-            for vendor_id in ecommerce_vendor_ids:
-                # Obtener meta del vendedor
-                meta_data = metas_vendedores_historicas.get('ecommerce', {}).get(vendor_id, {}).get(mes_seleccionado, {})
-                meta = meta_data.get('meta', 0)
-                
-                # Obtener venta del vendedor
-                venta = ventas_por_vendedor_ecommerce.get(vendor_id, 0)
-                
+            # 4. Construir la tabla de datos para la plantilla
+            for linea, venta in ventas_por_linea_ecommerce.items():
                 datos_ecommerce.append({
-                    'nombre': todos_los_vendedores.get(vendor_id, f"Vendedor ID {vendor_id}"),
-                    'meta': meta,
-                    'venta': venta,
-                    'porcentaje_avance': (venta / meta * 100) if meta > 0 else 0
+                    'nombre': linea, # Ahora es el nombre de la línea comercial
+                    'venta': venta
                 })
-                
-                kpis_ecommerce['meta_total'] += meta
                 kpis_ecommerce['venta_total'] += venta
 
-            # Calcular el porcentaje de avance total del equipo
+            # 5. Calcular el porcentaje de avance total del equipo
             if kpis_ecommerce['meta_total'] > 0:
                 kpis_ecommerce['porcentaje_avance'] = (kpis_ecommerce['venta_total'] / kpis_ecommerce['meta_total']) * 100
 
-            # Ordenar por venta descendente
+            # Ordenar las líneas por venta descendente
             datos_ecommerce = sorted(datos_ecommerce, key=lambda x: x['venta'], reverse=True)
 
         # --- FIN: LÓGICA PARA LA TABLA DEL EQUIPO ECOMMERCE ---
