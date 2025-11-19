@@ -935,30 +935,35 @@ def dashboard_linea():
         datos_ciclo_vida = [{'ciclo': c, 'venta': v} for c, v in ventas_por_ciclo_vida.items()]
         datos_forma_farmaceutica = [{'forma': f, 'venta': v} for f, v in ventas_por_forma.items()]
 
-        # Lista dinámica de todas las líneas para el selector (a partir de ventas y metas)
-        lineas_set = set()
-        # Extraer líneas desde los datos de ventas crudos
-        for sale in sales_data:
+        # --- LÓGICA MEJORADA PARA OBTENER LÍNEAS COMERCIALES DISPONIBLES ---
+        # Replicar la misma lógica del dashboard principal para consistencia.
+        
+        # 1. Obtener metas del mes para incluir líneas con metas pero sin ventas.
+        metas_historicas = gs_manager.read_metas_por_linea()
+        metas_del_mes = metas_historicas.get(mes_seleccionado, {}).get('metas', {})
+        
+        # 2. Unificar líneas desde ventas y metas.
+        all_lines_dict = {}
+
+        # Desde ventas
+        for sale in sales_data_processed: # Usar datos ya filtrados de ventas internacionales
             linea_obj = sale.get('commercial_line_national_id')
             if linea_obj and isinstance(linea_obj, list) and len(linea_obj) > 1:
-                nombre_linea = linea_obj[1].upper()
-                if 'VENTA INTERNACIONAL' in nombre_linea:
-                    continue
-                if nombre_linea.upper() in ['LICITACION', 'NINGUNO', 'ECOMMERCE']:
-                    continue
-                lineas_set.add(nombre_linea)
+                linea_nombre = linea_obj[1].upper()
+                # CORRECCIÓN: Usar el nombre como clave para evitar duplicados por ID vs texto
+                if linea_nombre not in all_lines_dict:
+                    all_lines_dict[linea_nombre] = linea_nombre
 
-        # Añadir líneas desde las metas (reconstruir nombre desde el id)
-        for linea_id_meta in metas_vendedores_historicas.keys():
-            nombre_reconstruido = linea_id_meta.replace('_', ' ').upper()
-            if nombre_reconstruido not in lineas_set:
-                lineas_set.add(nombre_reconstruido)
+        # Desde metas
+        for linea_id_meta in metas_del_mes.keys():
+            nombre_linea_meta = linea_id_meta.replace('_', ' ').upper()
+            if nombre_linea_meta not in all_lines_dict:
+                all_lines_dict[nombre_linea_meta] = nombre_linea_meta
 
-        # Fallback a la lista estática si quedó vacío
-        if not lineas_set:
-            lineas_disponibles = ['PETMEDICA', 'AGROVET', 'PET NUTRISCIENCE', 'AVIVET', 'OTROS', 'GENVET', 'INTERPET']
-        else:
-            lineas_disponibles = sorted(list(lineas_set))
+        # 3. Filtrar y ordenar
+        lineas_a_excluir = ['LICITACION', 'NINGUNO', 'ECOMMERCE', 'VENTA INTERNACIONAL']
+        lineas_disponibles = sorted([nombre for nombre in all_lines_dict.values() if nombre not in lineas_a_excluir])
+        # --- FIN DE LA LÓGICA MEJORADA ---
         return render_template('dashboard_linea.html',
                                linea_nombre=linea_seleccionada_nombre,
                                mes_seleccionado=mes_seleccionado,
