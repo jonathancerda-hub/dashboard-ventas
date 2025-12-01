@@ -139,9 +139,13 @@ def sales():
     if 'username' not in session:
         return redirect(url_for('login'))
     
-    # --- Lógica de Permisos de Administrador ---
+    # --- Verificación de Permisos ---
     admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
+    if not is_admin:
+        flash('No tienes permiso para acceder a esta página.', 'warning')
+        return redirect(url_for('dashboard'))
+    # --- Fin Verificación ---
     
     try:
         # Obtener opciones de filtro
