@@ -57,6 +57,27 @@ def get_meses_del_año(año):
         meses_disponibles.append({'key': mes_key, 'nombre': mes_nombre})
     return meses_disponibles
 
+def normalizar_linea_comercial(nombre_linea):
+    """
+    Normaliza nombres de líneas comerciales agrupando GENVET y MARCA BLANCA como TERCEROS.
+    
+    Ejemplos:
+    - GENVET → TERCEROS
+    - MARCA BLANCA → TERCEROS
+    - GENVET PERÚ → TERCEROS
+    - PETMEDICA → PETMEDICA (sin cambios)
+    """
+    if not nombre_linea:
+        return nombre_linea
+    
+    nombre_upper = nombre_linea.upper().strip()
+    
+    # Agrupar GENVET y MARCA BLANCA como TERCEROS
+    if 'GENVET' in nombre_upper or 'MARCA BLANCA' in nombre_upper:
+        return 'TERCEROS'
+    
+    return nombre_linea.upper().strip()
+
 def limpiar_nombre_atrevia(nombre_producto):
     """
     Limpia los nombres de productos ATREVIA eliminando indicadores de tamaño/presentación.
@@ -272,8 +293,26 @@ def dashboard():
 
         # Obtener metas del mes seleccionado desde la sesión
         metas_historicas = gs_manager.read_metas_por_linea()
-        metas_del_mes = metas_historicas.get(mes_seleccionado, {}).get('metas', {})
-        metas_ipn_del_mes = metas_historicas.get(mes_seleccionado, {}).get('metas_ipn', {})
+        metas_del_mes_raw = metas_historicas.get(mes_seleccionado, {}).get('metas', {})
+        metas_ipn_del_mes_raw = metas_historicas.get(mes_seleccionado, {}).get('metas_ipn', {})
+        
+        # Consolidar metas de GENVET con TERCEROS
+        metas_del_mes = {}
+        metas_ipn_del_mes = {}
+        
+        for linea_id, valor in metas_del_mes_raw.items():
+            if linea_id == 'genvet':
+                # Sumar la meta de genvet a terceros
+                metas_del_mes['terceros'] = metas_del_mes.get('terceros', 0) + valor
+            else:
+                metas_del_mes[linea_id] = valor
+        
+        for linea_id, valor in metas_ipn_del_mes_raw.items():
+            if linea_id == 'genvet':
+                # Sumar la meta IPN de genvet a terceros
+                metas_ipn_del_mes['terceros'] = metas_ipn_del_mes.get('terceros', 0) + valor
+            else:
+                metas_ipn_del_mes[linea_id] = valor
         
         # Las líneas comerciales se generan dinámicamente más adelante.
         
@@ -313,7 +352,7 @@ def dashboard():
             'PET NUTRISCIENCE': 'pet_nutriscience',
             'AVIVET': 'avivet',
             'OTROS': 'otros',
-            'GENVET': 'genvet',
+            'TERCEROS': 'terceros',
             'INTERPET': 'interpet',
         }
         
@@ -330,9 +369,11 @@ def dashboard():
             linea_comercial = sale.get('commercial_line_national_id')
             nombre_linea_actual = None
             if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
-                nombre_linea_actual = linea_comercial[1].upper()
-                if 'VENTA INTERNACIONAL' in nombre_linea_actual:
+                nombre_linea_original = linea_comercial[1].upper()
+                if 'VENTA INTERNACIONAL' in nombre_linea_original:
                     continue
+                # Aplicar normalización para agrupar GENVET y MARCA BLANCA como TERCEROS
+                nombre_linea_actual = normalizar_linea_comercial(nombre_linea_original)
             
             # También filtrar por canal de ventas
             canal_ventas = sale.get('sales_channel_id')
@@ -392,6 +433,10 @@ def dashboard():
 
         # Añadir líneas desde las metas (para aquellas que no tuvieron ventas)
         for linea_id_meta in metas_del_mes.keys():
+            # Convertir genvet a terceros si existe en las metas
+            if linea_id_meta == 'genvet':
+                linea_id_meta = 'terceros'
+            
             if linea_id_meta not in all_lines:
                 # Reconstruir el nombre desde el ID de la meta
                 nombre_reconstruido = linea_id_meta.replace('_', ' ').upper()
@@ -401,7 +446,7 @@ def dashboard():
         lineas_comerciales_dinamicas = sorted(all_lines.values(), key=lambda x: x['nombre'])
 
         # Excluir líneas no deseadas que pueden venir de los datos
-        lineas_a_excluir = ['LICITACION', 'NINGUNO', 'ECOMMERCE']
+        lineas_a_excluir = ['LICITACION', 'NINGUNO', 'ECOMMERCE', 'GENVET', 'MARCA BLANCA']
         lineas_comerciales_filtradas = [
             linea for linea in lineas_comerciales_dinamicas
             if linea['nombre'].upper() not in lineas_a_excluir
@@ -551,11 +596,13 @@ def dashboard():
                     if vendedor_id in ecommerce_vendor_ids:
                         balance = float(sale.get('balance', 0))
                         
-                        # Agrupar por línea comercial
+                        # Agrupar por línea comercial con normalización
                         linea_info = sale.get('commercial_line_national_id')
                         linea_nombre = 'N/A'
                         if linea_info and isinstance(linea_info, list) and len(linea_info) > 1:
-                            linea_nombre = linea_info[1].upper()
+                            linea_nombre_original = linea_info[1].upper()
+                            # Aplicar normalización para agrupar GENVET y MARCA BLANCA como TERCEROS
+                            linea_nombre = normalizar_linea_comercial(linea_nombre_original)
                         
                         ventas_por_linea_ecommerce[linea_nombre] = ventas_por_linea_ecommerce.get(linea_nombre, 0) + balance
 
@@ -688,7 +735,7 @@ def dashboard_linea():
         mapeo_nombre_a_id = {
             'PETMEDICA': 'petmedica', 'AGROVET': 'agrovet', 'PET NUTRISCIENCE': 'pet_nutriscience',
             'AVIVET': 'avivet', 'OTROS': 'otros',
-            'GENVET': 'genvet', 'INTERPET': 'interpet',
+            'TERCEROS': 'terceros', 'INTERPET': 'interpet',
         }
         linea_seleccionada_id = mapeo_nombre_a_id.get(linea_seleccionada_nombre.upper(), 'petmedica')
 
@@ -749,7 +796,9 @@ def dashboard_linea():
         for sale in sales_data_processed: # Usar los datos pre-filtrados
             linea_comercial = sale.get('commercial_line_national_id')
             if linea_comercial and isinstance(linea_comercial, list) and len(linea_comercial) > 1:
-                nombre_linea_actual = linea_comercial[1].upper()
+                nombre_linea_original = linea_comercial[1].upper()
+                # Aplicar normalización para agrupar GENVET y MARCA BLANCA como TERCEROS
+                nombre_linea_actual = normalizar_linea_comercial(nombre_linea_original)
 
                 # Filtrar por la línea comercial seleccionada
                 if nombre_linea_actual == linea_seleccionada_nombre.upper():
@@ -949,12 +998,13 @@ def dashboard_linea():
         # 2. Unificar líneas desde ventas y metas.
         all_lines_dict = {}
 
-        # Desde ventas
+        # Desde ventas (aplicando normalización)
         for sale in sales_data_processed: # Usar datos ya filtrados de ventas internacionales
             linea_obj = sale.get('commercial_line_national_id')
             if linea_obj and isinstance(linea_obj, list) and len(linea_obj) > 1:
-                linea_nombre = linea_obj[1].upper()
-                # CORRECCIÓN: Usar el nombre como clave para evitar duplicados por ID vs texto
+                linea_nombre_original = linea_obj[1].upper()
+                # Aplicar normalización para agrupar GENVET y MARCA BLANCA como TERCEROS
+                linea_nombre = normalizar_linea_comercial(linea_nombre_original)
                 if linea_nombre not in all_lines_dict:
                     all_lines_dict[linea_nombre] = linea_nombre
 
@@ -994,7 +1044,7 @@ def dashboard_linea():
         meses_disponibles = get_meses_del_año(año_actual)
         linea_seleccionada_nombre = request.args.get('linea_nombre', 'PETMEDICA')
         lineas_disponibles = [
-            'PETMEDICA', 'AGROVET', 'PET NUTRISCIENCE', 'AVIVET', 'OTROS', 'GENVET', 'INTERPET'
+            'PETMEDICA', 'AGROVET', 'PET NUTRISCIENCE', 'AVIVET', 'OTROS', 'TERCEROS', 'INTERPET'
         ]
         dia_actual = fecha_actual.day
         kpis_default = {
@@ -1043,7 +1093,7 @@ def meta():
             {'nombre': 'PET NUTRISCIENCE', 'id': 'pet_nutriscience'},
             {'nombre': 'AVIVET', 'id': 'avivet'},
             {'nombre': 'OTROS', 'id': 'otros'},
-            {'nombre': 'GENVET', 'id': 'genvet'},
+            {'nombre': 'TERCEROS', 'id': 'terceros'},
             {'nombre': 'INTERPET', 'id': 'interpet'},
         ]
         
@@ -1267,7 +1317,7 @@ def metas_vendedor():
         {'nombre': 'PET NUTRISCIENCE', 'id': 'pet_nutriscience'},
         {'nombre': 'AVIVET', 'id': 'avivet'},
         {'nombre': 'OTROS', 'id': 'otros'},
-        {'nombre': 'GENVET', 'id': 'genvet'},
+        {'nombre': 'TERCEROS', 'id': 'terceros'},
         {'nombre': 'INTERPET', 'id': 'interpet'},
     ]
     equipos_definidos = [
@@ -1276,6 +1326,7 @@ def metas_vendedor():
         {'id': 'pet_nutriscience', 'nombre': 'PET NUTRISCIENCE'},
         {'id': 'avivet', 'nombre': 'AVIVET'},
         {'id': 'otros', 'nombre': 'OTROS'},
+        {'id': 'terceros', 'nombre': 'TERCEROS'},
         {'id': 'interpet', 'nombre': 'INTERPET'},
     ]
 
