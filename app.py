@@ -124,8 +124,15 @@ def login():
         if user_data:
             # --- Verificación de Lista Blanca ---
             try:
-                with open('allowed_users.json', 'r') as f:
-                    allowed_emails = json.load(f).get('allowed_emails', [])
+                # Intentar leer desde variable de entorno primero
+                allowed_emails_env = os.getenv('ALLOWED_USERS')
+                if allowed_emails_env:
+                    # Si existe la variable de entorno, parsear la lista separada por comas
+                    allowed_emails = [email.strip() for email in allowed_emails_env.split(',')]
+                else:
+                    # Fallback: leer desde el archivo JSON local
+                    with open('allowed_users.json', 'r') as f:
+                        allowed_emails = json.load(f).get('allowed_emails', [])
                 
                 user_login = user_data.get('login')
                 if user_login and user_login in allowed_emails:
@@ -139,6 +146,8 @@ def login():
                     flash('No tienes permiso para acceder a esta aplicación.', 'warning')
             except FileNotFoundError:
                 flash('Error de configuración: El archivo de usuarios permitidos no se encuentra.', 'danger')
+            except Exception as e:
+                flash(f'Error al verificar permisos: {str(e)}', 'danger')
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
             
