@@ -19,6 +19,7 @@ credentials.json
 # Contiene correos electrónicos del personal
 allowed_users.json
 whitelist.txt
+RENDER_SETUP.md
 
 # Archivos específicos del editor de código (ej. VSCode)
 .vscode/
