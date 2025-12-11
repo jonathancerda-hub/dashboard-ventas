@@ -15,6 +15,11 @@ __pycache__/
 # ¡MUY IMPORTANTE! Nunca subas este archivo a un repositorio público.
 credentials.json
 
+# Lista de usuarios autorizados
+# Contiene correos electrónicos del personal
+allowed_users.json
+whitelist.txt
+
 # Archivos específicos del editor de código (ej. VSCode)
 .vscode/
 
