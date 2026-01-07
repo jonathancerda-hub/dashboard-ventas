@@ -27,6 +27,13 @@
     </a>
     
     <div class="header-nav">
+        <select id="año-selector" onchange="cambiarAño(this.value)" style="margin-right: 10px;">
+            {% for año in años_disponibles %}
+            <option value="{{ año }}" {% if año == año_seleccionado %}selected{% endif %}>
+                {{ año }}
+            </option>
+            {% endfor %}
+        </select>
         <select id="mes-selector" onchange="cambiarMes(this.value)">
             {% for mes in meses_disponibles %}
             <option value="{{ mes.key }}" {% if mes.key == mes_seleccionado %}selected{% endif %}>
@@ -1197,7 +1204,14 @@ function updateStackedChart() {
 
 // Función para cambiar mes
 function cambiarMes(mesSeleccionado) {
-    window.location.href = `?mes=${mesSeleccionado}`;
+    const añoActual = document.getElementById('año-selector').value;
+    window.location.href = `?año=${añoActual}&mes=${mesSeleccionado}`;
+}
+
+function cambiarAño(añoSeleccionado) {
+    // Al cambiar año, ir al primer mes de ese año
+    const primerMes = `${añoSeleccionado}-01`;
+    window.location.href = `?año=${añoSeleccionado}&mes=${primerMes}`;
 }
 
 // Inicializar gráficos cuando la página carga

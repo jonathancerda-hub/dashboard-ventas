@@ -259,17 +259,26 @@ def dashboard():
         admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com"]
         is_admin = session.get('username') in admin_users
 
-        # Obtener año actual y mes seleccionado
+        # Obtener año seleccionado (parámetro o año actual por defecto)
         fecha_actual = datetime.now()
-        año_actual = fecha_actual.year
-        mes_seleccionado = request.args.get('mes', fecha_actual.strftime('%Y-%m'))
+        año_seleccionado = request.args.get('año', str(fecha_actual.year))
+        try:
+            año_seleccionado = int(año_seleccionado)
+        except (ValueError, TypeError):
+            año_seleccionado = fecha_actual.year
+        
+        # Generar lista de años disponibles (desde 2025 hasta año actual)
+        años_disponibles = list(range(2025, fecha_actual.year + 1))
+        
+        # Obtener mes seleccionado
+        mes_seleccionado = request.args.get('mes', f"{año_seleccionado}-{fecha_actual.month:02d}" if año_seleccionado == fecha_actual.year else f"{año_seleccionado}-01")
         
         # --- NUEVA LÓGICA DE FILTRADO POR DÍA ---
         # Obtener el día final del filtro, si existe
         dia_fin_param = request.args.get('dia_fin')
 
-        # Crear todos los meses del año actual
-        meses_disponibles = get_meses_del_año(año_actual)
+        # Crear todos los meses del año seleccionado
+        meses_disponibles = get_meses_del_año(año_seleccionado)
         
         # Obtener nombre del mes seleccionado
         mes_obj = next((m for m in meses_disponibles if m['key'] == mes_seleccionado), None)
@@ -648,6 +657,8 @@ def dashboard():
                              mes_seleccionado=mes_seleccionado,
                              mes_nombre=mes_nombre,
                              dia_actual=dia_actual,
+                             años_disponibles=años_disponibles,
+                             año_seleccionado=año_seleccionado,
                              kpis=kpis,
                              datos_lineas=datos_lineas, # Para gráficos, mantener el orden original (alfabético por nombre)
                              datos_lineas_tabla=datos_lineas_tabla_sorted, # Para la tabla, usar los datos ordenados por venta
@@ -687,6 +698,8 @@ def dashboard():
                              mes_seleccionado=fecha_actual.strftime('%Y-%m'),
                              mes_nombre=f"{fecha_actual.strftime('%B').upper()} {fecha_actual.year}",
                              dia_actual=fecha_actual.day,
+                             años_disponibles=list(range(2025, fecha_actual.year + 1)),
+                             año_seleccionado=fecha_actual.year,
                              kpis=kpis_default,
                              datos_lineas=[], # Se mantiene vacío en caso de error
                              datos_lineas_tabla=[],

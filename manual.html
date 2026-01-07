@@ -181,8 +181,12 @@
                 <li>
 <a href="#dashboard" class="nav-link">4. Uso del Dashboard</a>
                     <ul>
-                        <li><a href="#dashboard-interactivo" class="nav-link">4.1 Gráficos Interactivos</a></li>
-                        <li><a href="#dashboard-apilado" class="nav-link">4.2 Gráfico Apilado</a></li>
+                        <li><a href="#tarjetas-kpis" class="nav-link">4.1 Tarjetas de KPIs</a></li>
+                        <li><a href="#dashboard-interactivo" class="nav-link">4.2 Tabla Principal</a></li>
+                        <li><a href="#dashboard-graficos" class="nav-link">4.3 Gráficos Interactivos</a></li>
+                        <li><a href="#dashboard-ecommerce" class="nav-link">4.4 Tabla ECOMMERCE</a></li>
+                        <li><a href="#dashboard-apilado" class="nav-link">4.5 Gráfico Apilado</a></li>
+                        <li><a href="#campos-odoo" class="nav-link">4.6 Campos de Odoo</a></li>
                     </ul>
                 </li>
                 <li><a href="#metas" class="nav-link">5. Gestión de Metas</a></li>
@@ -214,12 +218,13 @@
             <h2>2. Filtros Aplicados en la Consulta a Odoo</h2>
             <p>Para asegurar que solo se procesen datos relevantes, se aplican los siguientes filtros directamente en la consulta a la base de datos de Odoo:</p>
             <div class="code-block">
-                <p><strong>Tipo de Movimiento:</strong> Solo facturas de venta y notas de crédito (<code>out_invoice</code>, <code>out_refund</code>).</p>
-                <p><strong>Estado del Movimiento:</strong> Solo asientos contables ya publicados (<code>state = 'posted'</code>).</p>
-                <p><strong>Código de Producto:</strong> Se excluyen productos que no tienen una referencia interna (<code>default_code != False</code>).</p>
+                <p><strong>Tipo de Movimiento:</strong> Solo facturas de venta y notas de crédito (<code>move_id.move_type in ['out_invoice', 'out_refund']</code>).</p>
+                <p><strong>Estado del Movimiento:</strong> Solo asientos contables ya publicados (<code>move_id.state = 'posted'</code>). Las facturas en borrador (<code>'draft'</code>) o canceladas (<code>'cancel'</code>) NO se incluyen en ningún cálculo.</p>
+                <p><strong>Código de Producto:</strong> Se excluyen productos que no tienen una referencia interna (<code>product_id.default_code != False</code>).</p>
                 <p><strong>Categorías Excluidas:</strong> Se omiten productos de categorías específicas de servicio o internas (IDs: <code>[315, 333, 304, 314, 318, 339]</code>).</p>
                 <p><strong>Impuestos:</strong> Solo se incluyen líneas que tengan aplicados los impuestos "IGV" o "IGV_INC".</p>
             </div>
+            <p class="note"><strong>Importante sobre Estados:</strong> El sistema trabaja exclusivamente con facturas en estado <code>'posted'</code>. Esto garantiza que solo se contabilicen transacciones confirmadas y publicadas en el sistema contable. Las facturas en borrador o canceladas no afectan ninguna métrica del dashboard.</p>
         </section>
 
         <section id="logica-app">
@@ -246,13 +251,17 @@
             </div>
 
             <div id="logica-agrupacion" class="subsection">
-                <h3>3.3 Agrupación de Datos</h3>
+                <h3>3.3 Agrupación de Datos y Cálculos de Métricas</h3>
                 <p>Finalmente, los datos ya filtrados y procesados se agrupan para alimentar los diferentes componentes visuales del dashboard. Los cálculos más importantes son:</p>
                 <ul class="code-block">
-                    <li><strong>Venta Total:</strong> Suma del <code>balance</code> de todas las ventas filtradas.</li>
-                    <li><strong>Venta IPN (Productos Nuevos):</strong> Suma del <code>balance</code> de las ventas de productos cuyo "Ciclo de vida del producto" es exactamente <code>'nuevo'</code>.</li>
-                    <li><strong>Vencimiento &lt; 6 Meses:</strong> Suma del <code>balance</code> de las ventas cuya "Ruta" en la línea de pedido tiene el ID <code>18</code> ('3 &gt; P &lt; 6') o <code>19</code> ('1 ≥ P ≤ 3').</li>
+                    <li><strong>Venta Total:</strong> Suma del <code>balance × (-1)</code> de todas las ventas filtradas. Solo incluye transacciones en estado <code>'posted'</code>.</li>
+                    <li><strong>Venta IPN (Productos Nuevos):</strong> Suma del <code>balance × (-1)</code> de las ventas de productos cuyo "Ciclo de vida del producto" (<code>product_life_cycle</code>) es exactamente <code>'nuevo'</code>.</li>
+                    <li><strong>Vencimiento &lt; 6 Meses:</strong> Suma del <code>balance × (-1)</code> de las ventas cuya "Ruta" (<code>route_id</code>) en la línea de pedido tiene el ID <code>18</code> ('3 &gt; P &lt; 6 meses') o <code>19</code> ('1 ≥ P ≤ 3 meses').</li>
+                    <li><strong>Ventas por Línea Comercial:</strong> Agrupación por el campo <code>commercial_line_national_id</code> del producto. Las líneas "GENVET" y "MARCA BLANCA" se normalizan automáticamente a "TERCEROS".</li>
+                    <li><strong>Ventas por Producto:</strong> Agrupación por nombre de producto (<code>name</code>). Los productos ATREVIA se consolidan eliminando indicadores de tamaño (MEDIUM, LARGE, SMALL, etc.).</li>
+                    <li><strong>Ventas por Ciclo de Vida:</strong> Agrupación por el campo <code>product_life_cycle</code> para el gráfico de dona.</li>
                 </ul>
+                <p class="note"><strong>Nota sobre Notas de Crédito:</strong> Las notas de crédito, al ser invertidas, aparecen con valores negativos en los cálculos. Esto significa que reducen automáticamente las ventas totales, reflejando correctamente las devoluciones o ajustes comerciales.</p>
             </div>
         </section>
 
@@ -265,35 +274,152 @@
                 <li><strong>Exportación:</strong> Puedes exportar el detalle completo de los datos del mes seleccionado a un archivo Excel.</li>
             </ul>
 
+            <div id="tarjetas-kpis" class="subsection">
+                <h3>4.1 Tarjetas de KPIs (Indicadores Clave)</h3>
+                <p>En la parte superior del dashboard se encuentran las tarjetas de KPIs que muestran métricas clave del desempeño comercial:</p>
+                
+                <h4>Fila Principal de KPIs:</h4>
+                <div class="code-block">
+                    <ul>
+                        <li><strong>Meta:</strong> Meta total de ventas establecida para el mes (suma de todas las líneas comerciales).</li>
+                        <li><strong>Venta:</strong> Ventas totales realizadas hasta el día actual (suma del campo <code>balance</code> invertido de Odoo).</li>
+                        <li><strong>% Avance:</strong> Porcentaje de cumplimiento de la meta total. Cálculo: <code>(Venta Total / Meta Total) × 100</code></li>
+                        <li><strong>Meta IPN:</strong> Meta total de productos IPN (Introducción de Productos Nuevos) para el mes.</li>
+                        <li><strong>Venta IPN:</strong> Ventas de productos cuyo "Ciclo de vida del producto" en Odoo es exactamente <code>'nuevo'</code>.</li>
+                        <li><strong>% Avance IPN:</strong> Porcentaje de cumplimiento de la meta IPN. Cálculo: <code>(Venta IPN / Meta IPN) × 100</code></li>
+                    </ul>
+                </div>
+                
+                <h4>Fila de Avance Diario:</h4>
+                <div class="code-block">
+                    <ul>
+                        <li><strong>Avance Diario Acumulado:</strong> Proyección del avance si se mantiene el ritmo actual. Cálculo: <code>[(Venta Total / Día Actual) × Días del Mes / Meta Total] × 100</code></li>
+                        <li><strong>Brecha Comercial (S/):</strong> Diferencia entre la meta y la venta actual. Cálculo: <code>max(Meta Total - Venta Total, 0)</code></li>
+                        <li><strong>Avance Diario IPN Acumulado:</strong> Proyección del avance IPN con el ritmo actual. Cálculo: <code>[(Venta IPN / Día Actual) × Días del Mes / Meta IPN] × 100</code></li>
+                        <li><strong>Brecha Comercial IPN (S/):</strong> Diferencia entre la meta IPN y la venta IPN actual. Cálculo: <code>max(Meta IPN - Venta IPN, 0)</code></li>
+                    </ul>
+                </div>
+                
+                <p class="note"><strong>Estados de Odoo Utilizados:</strong> Todas las mediciones se realizan únicamente sobre asientos contables que están en estado <code>'posted'</code> (publicados). Las facturas en borrador (<code>'draft'</code>) no se incluyen en ningún cálculo.</p>
+            </div>
+
             <div id="dashboard-interactivo" class="subsection">
-                <h3>4.1 Gráficos Interactivos y Análisis Jerárquico</h3>
-                <p>El dashboard principal ahora incluye gráficos dinámicos que están conectados entre sí para un análisis más profundo:</p>
+                <h3>4.2 Tabla Principal de Líneas Comerciales</h3>
+                <p>La tabla central muestra el detalle de cada línea comercial con las siguientes columnas:</p>
+                <div class="code-block">
+                    <ul>
+                        <li><strong>Línea Comercial:</strong> Nombre de la línea comercial (se excluyen LICITACION, NINGUNO, ECOMMERCE, GENVET y MARCA BLANCA de la visualización).</li>
+                        <li><strong>Meta:</strong> Objetivo de ventas para esa línea en el mes.</li>
+                        <li><strong>Venta:</strong> Ventas reales de la línea (suma del <code>balance</code> invertido).</li>
+                        <li><strong>% Cump:</strong> Porcentaje de cumplimiento. Cálculo: <code>(Venta / Meta) × 100</code></li>
+                        <li><strong>% Total Vta.:</strong> Participación de la línea sobre el total de ventas. Cálculo: <code>(Venta Línea / Total Ventas) × 100</code></li>
+                        <li><strong>Meta IPN:</strong> Meta de productos nuevos para esta línea.</li>
+                        <li><strong>Venta IPN:</strong> Ventas de productos con ciclo de vida <code>'nuevo'</code>.</li>
+                        <li><strong>% Cump IPN:</strong> Porcentaje de cumplimiento IPN. Cálculo: <code>(Venta IPN / Meta IPN) × 100</code></li>
+                        <li><strong>Venc &lt;6 mss:</strong> Suma de ventas de productos cuya "Ruta" tiene ID <code>18</code> ('3 &gt; P &lt; 6 meses') o ID <code>19</code> ('1 ≥ P ≤ 3 meses').</li>
+                    </ul>
+                </div>
+                <p class="note"><strong>Nota de Agrupación:</strong> Los productos de las líneas "GENVET" y "MARCA BLANCA" se agrupan automáticamente bajo "TERCEROS" para la visualización y los cálculos.</p>
+            </div>
+
+            <div id="dashboard-graficos" class="subsection">
+                <h3>4.3 Gráficos Interactivos y Análisis</h3>
+                
+                <h4>Top 7 Productos Más Vendidos</h4>
+                <p>Este gráfico de barras horizontales muestra los 7 productos con mayores ventas en el periodo seleccionado. Los productos ATREVIA se agrupan automáticamente eliminando los indicadores de tamaño (MEDIUM, LARGE, SMALL) para consolidar las ventas por producto base.</p>
                 <ul>
-                    <li><strong>Análisis Jerárquico de Ventas:</strong> Este gráfico de barras te permite "profundizar" en tus datos. Al hacer clic en una barra (ej. una clasificación farmacológica), el gráfico se actualizará para mostrar el siguiente nivel de detalle (ej. las vías de administración para esa clasificación). Puedes usar el botón "Volver" dentro del gráfico para regresar al nivel anterior.</li>
-                    <li><strong>Gráficos Conectados:</strong> A medida que navegas por el gráfico jerárquico, los gráficos <strong>"Top 7 Productos Más Vendidos"</strong> y <strong>"Venta por Clasificación Farmacológica"</strong> se actualizarán automáticamente para mostrar los datos correspondientes al nivel que estás visualizando. Esto te permite ver, por ejemplo, cuáles son los productos más vendidos de una vía de administración específica dentro de una clasificación farmacológica.</li>
+                    <li><strong>Eje X:</strong> Monto de ventas en soles.</li>
+                    <li><strong>Eje Y:</strong> Nombre del producto (limpiado y consolidado).</li>
+                    <li><strong>Colores:</strong> Las barras se colorean según el ciclo de vida del producto (nuevo, consolidado, etc.).</li>
+                    <li><strong>Interactividad:</strong> Al pasar el cursor sobre una barra, se muestra el monto exacto de ventas.</li>
                 </ul>
-                <p class="note">Esta funcionalidad convierte el dashboard en una herramienta de exploración de datos, permitiéndote descubrir patrones y tendencias de forma intuitiva.</p>
+                
+                <h4>Venta por Línea Comercial</h4>
+                <p>Gráfico de barras verticales que muestra las ventas totales de cada línea comercial del mes.</p>
+                <ul>
+                    <li><strong>Eje X:</strong> Líneas comerciales.</li>
+                    <li><strong>Eje Y:</strong> Monto de ventas en soles.</li>
+                    <li><strong>Fuente de Datos:</strong> Suma del <code>balance</code> invertido agrupado por <code>commercial_line_national_id</code>.</li>
+                </ul>
+                
+                <h4>Venta por Tipo de Producto (Gráfico Donut)</h4>
+                <p>Gráfico de dona que muestra la distribución de ventas según el ciclo de vida del producto.</p>
+                <ul>
+                    <li><strong>Segmentos:</strong> Nuevo, Consolidado, Madurez, Declive, No definido.</li>
+                    <li><strong>Porcentajes:</strong> Cada segmento muestra su participación sobre el total de ventas.</li>
+                    <li><strong>Campo de Odoo:</strong> <code>product_life_cycle</code> del producto.</li>
+                    <li><strong>Interactividad:</strong> Al hacer clic en un segmento, se puede aislar para ver su valor específico.</li>
+                </ul>
+            </div>
+
+            <div id="dashboard-ecommerce" class="subsection">
+                <h3>4.4 Tabla Equipo ECOMMERCE</h3>
+                <p>Si existe un equipo ECOMMERCE configurado en Google Sheets, se mostrará una tabla adicional con el desglose de sus ventas por línea comercial.</p>
+                <div class="code-block">
+                    <ul>
+                        <li><strong>Filtro de Vendedores:</strong> Solo se incluyen ventas de los vendedores asignados al equipo ECOMMERCE.</li>
+                        <li><strong>Agrupación:</strong> Las ventas se agrupan por línea comercial.</li>
+                        <li><strong>Meta del Equipo:</strong> Se toma de las "Metas por Línea" configuradas en Google Sheets para la línea "ECOMMERCE".</li>
+                        <li><strong>% Avance:</strong> Se calcula comparando la venta total del equipo contra su meta asignada.</li>
+                    </ul>
+                </div>
             </div>
 
             <div id="dashboard-apilado" class="subsection">
-                <h3>4.2 Gráfico de Ventas por Clasificación Comercial</h3>
-                <p>Este nuevo gráfico de barras apiladas te permite analizar la composición de las ventas de cada línea comercial según diferentes criterios.</p>
+                <h3>4.5 Gráfico de Ventas por Clasificación Comercial (DESACTIVADO)</h3>
+                <p class="note"><strong>Nota:</strong> Este gráfico está actualmente desactivado en el código pero puede reactivarse. Permite analizar la composición de las ventas de cada línea comercial según diferentes criterios.</p>
                 <ul>
                     <li><strong>Eje Vertical (Y):</strong> Muestra las principales líneas comerciales (Petmedica, Agrovet, etc.).</li>
                     <li><strong>Eje Horizontal (X):</strong> Representa el total de ventas.</li>
                     <li><strong>Barras Apiladas:</strong> Cada barra de una línea comercial está segmentada por colores, donde cada color representa una subcategoría.</li>
                 </ul>
-                <h4>Uso del Selector de Dimensión</h4>
-                <p>En la esquina superior derecha del gráfico encontrarás un menú desplegable. Este menú te permite cambiar dinámicamente la dimensión por la cual se apilan las barras. Puedes elegir entre:</p>
+                <h4>Dimensiones Disponibles del Selector:</h4>
                 <ul>
-                    <li>Forma Farmacéutica</li>
-                    <li>Clasificación Farmacologica</li>
-                    <li>Vía de Administración</li>
-                    <li>Categoría de Producto</li>
-                    <li>Línea de Producción</li>
+                    <li><strong>Forma Farmacéutica:</strong> Campo <code>pharmaceutical_forms_id</code> del producto.</li>
+                    <li><strong>Clasificación Farmacológica:</strong> Campo <code>pharmacological_classification_id</code> del producto.</li>
+                    <li><strong>Vía de Administración:</strong> Campo <code>administration_way_id</code> del producto.</li>
+                    <li><strong>Categoría de Producto:</strong> Campo <code>categ_id</code> del producto.</li>
+                    <li><strong>Línea de Producción:</strong> Campo <code>production_line_id</code> del producto.</li>
                 </ul>
-                <p class="note">Al seleccionar una nueva dimensión, el gráfico se redibujará automáticamente para reflejar la nueva estructura de datos, permitiéndote un análisis flexible y detallado de la composición de las ventas.</p>
+                <p>Al seleccionar una nueva dimensión, el gráfico se redibuja automáticamente para reflejar la nueva estructura de datos, permitiéndote un análisis flexible y detallado de la composición de las ventas.</p>
             </div>
+        </section>
+
+        <section id="campos-odoo">
+            <h2>4.6 Resumen de Campos de Odoo Utilizados</h2>
+            <p>Esta tabla resume los principales campos de Odoo que se utilizan en los cálculos y mediciones del dashboard:</p>
+            
+            <div class="code-block">
+                <h4>Campos del Asiento Contable (account.move.line):</h4>
+                <ul>
+                    <li><strong>balance:</strong> Valor contable de la línea (se invierte: <code>balance × -1</code>)</li>
+                    <li><strong>move_id.state:</strong> Estado del asiento (<code>'posted'</code> = publicado, <code>'draft'</code> = borrador, <code>'cancel'</code> = cancelado)</li>
+                    <li><strong>move_id.move_type:</strong> Tipo de documento (<code>'out_invoice'</code> = factura, <code>'out_refund'</code> = nota de crédito)</li>
+                    <li><strong>move_id.invoice_date:</strong> Fecha de la factura</li>
+                    <li><strong>partner_id:</strong> Cliente asociado</li>
+                </ul>
+                
+                <h4>Campos del Producto (product.product):</h4>
+                <ul>
+                    <li><strong>name:</strong> Nombre del producto</li>
+                    <li><strong>default_code:</strong> Código o referencia interna del producto</li>
+                    <li><strong>commercial_line_national_id:</strong> Línea comercial nacional (PETMEDICA, AGROVET, TERCEROS, etc.)</li>
+                    <li><strong>product_life_cycle:</strong> Ciclo de vida (<code>'nuevo'</code>, <code>'consolidado'</code>, <code>'madurez'</code>, <code>'declive'</code>)</li>
+                    <li><strong>categ_id:</strong> Categoría del producto</li>
+                    <li><strong>pharmaceutical_forms_id:</strong> Forma farmacéutica (tabletas, inyectable, etc.)</li>
+                    <li><strong>pharmacological_classification_id:</strong> Clasificación farmacológica</li>
+                    <li><strong>administration_way_id:</strong> Vía de administración (oral, tópica, etc.)</li>
+                    <li><strong>production_line_id:</strong> Línea de producción</li>
+                </ul>
+                
+                <h4>Campos de la Orden de Venta (sale.order.line):</h4>
+                <ul>
+                    <li><strong>route_id:</strong> Ruta logística. Los IDs <code>18</code> y <code>19</code> identifican productos con vencimiento &lt; 6 meses</li>
+                    <li><strong>sales_channel_id:</strong> Canal de ventas (se usa para filtrar ventas internacionales)</li>
+                </ul>
+            </div>
+            
+            <p class="note"><strong>Importante:</strong> Todos los campos relacionales (terminados en <code>_id</code>) en Odoo devuelven una lista <code>[ID, Nombre]</code>. Por ejemplo: <code>[875, 'PETMEDICA']</code>. El sistema extrae el nombre (posición 1) para las agrupaciones y visualizaciones.</p>
         </section>
 
         <section id="metas">
