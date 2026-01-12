@@ -473,6 +473,9 @@ def dashboard():
         # Pre-calcular la venta total para el cálculo de porcentajes
         total_venta = sum(ventas_por_linea.values())
         total_venta_calculado = total_venta # Renombrar para claridad en el bucle
+        
+        print(f"🔍 DEBUG: lineas_comerciales_filtradas = {[l['nombre'] for l in lineas_comerciales_filtradas]}")
+        print(f"🔍 DEBUG: total_venta = {total_venta}")
 
         for linea in lineas_comerciales_filtradas:
             meta = metas_del_mes.get(linea['id'], 0)
@@ -480,6 +483,7 @@ def dashboard():
             
             # Usar ventas reales de Odoo
             venta = ventas_por_linea.get(nombre_linea, 0)
+            print(f"🔍 DEBUG BUCLE: {nombre_linea} - meta={meta}, venta={venta}")
             
             # Usar la meta IPN registrada por el usuario
             meta_pn = metas_ipn_del_mes.get(linea['id'], 0)
@@ -512,10 +516,10 @@ def dashboard():
         ritmo_diario_requerido = 0
         if mes_seleccionado == fecha_actual.strftime('%Y-%m'):
             hoy = fecha_actual.day
-            ultimo_dia_mes = calendar.monthrange(año_actual, fecha_actual.month)[1]
+            ultimo_dia_mes = calendar.monthrange(año_seleccionado, fecha_actual.month)[1]
             for dia in range(hoy, ultimo_dia_mes + 1):
                 # weekday() -> Lunes=0, Domingo=6
-                if datetime(año_actual, fecha_actual.month, dia).weekday() < 6:
+                if datetime(año_seleccionado, fecha_actual.month, dia).weekday() < 6:
                     dias_restantes += 1
             
             porcentaje_restante = 100 - ((total_venta / total_meta * 100) if total_meta > 0 else 100)
@@ -651,6 +655,11 @@ def dashboard():
 
         # Ordenar los datos de la tabla por venta descendente
         datos_lineas_tabla_sorted = sorted(datos_lineas, key=lambda x: x['venta'], reverse=True)
+        
+        print(f"🔍 DEBUG: datos_lineas tiene {len(datos_lineas)} elementos")
+        print(f"🔍 DEBUG: datos_lineas_tabla_sorted tiene {len(datos_lineas_tabla_sorted)} elementos")
+        if len(datos_lineas_tabla_sorted) > 0:
+            print(f"🔍 DEBUG: Primera línea: {datos_lineas_tabla_sorted[0]}")
 
         return render_template('dashboard_clean.html',
                              meses_disponibles=meses_disponibles,
@@ -674,6 +683,9 @@ def dashboard():
                              is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
+        print(f"❌ ERROR CAPTURADO: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f'Error al obtener datos del dashboard: {str(e)}', 'danger')
         
         # Crear datos por defecto para evitar errores
