@@ -239,7 +239,7 @@ class OdooManager:
             print(f"Error obteniendo la lista de vendedores: {e}")
             return []
 
-    def get_sales_lines(self, page=None, per_page=None, filters=None, date_from=None, date_to=None, partner_id=None, linea_id=None, search=None, limit=5000):
+    def get_sales_lines(self, page=None, per_page=None, filters=None, date_from=None, date_to=None, partner_id=None, linea_id=None, search=None, limit=10000):
         """Obtener líneas de venta completas con todas las 27 columnas"""
         try:
             print(f"🔍 Obteniendo líneas de venta completas...")

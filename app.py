@@ -342,7 +342,7 @@ def dashboard():
             sales_data = data_manager.get_sales_lines(
                 date_from=fecha_inicio,
                 date_to=fecha_fin,
-                limit=5000
+                limit=10000
             )
             
             print(f"📊 Obtenidas {len(sales_data)} líneas de ventas para el dashboard")
