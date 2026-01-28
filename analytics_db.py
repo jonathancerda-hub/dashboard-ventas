@@ -49,6 +49,8 @@ class AnalyticsDB:
                 if not PSYCOPG2_AVAILABLE:
                     print("❌ psycopg2 no disponible. Usando SQLite como fallback.")
                     self.use_sqlite = True
+                    if not hasattr(self, 'db_path'):
+                        self.db_path = 'analytics.db'
                     conn = sqlite3.connect(self.db_path)
                     conn.row_factory = sqlite3.Row
                 else:

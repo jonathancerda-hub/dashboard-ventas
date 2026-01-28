@@ -1740,27 +1740,39 @@ def analytics():
         'recent_visits': analytics_db.get_recent_visits(50)
     }
     
-    # Convertir fechas de string a datetime si es necesario (para SQLite)
+    # Convertir y formatear fechas para compatibilidad con el template
     for visit in stats['visits_by_user']:
-        if isinstance(visit.get('last_visit'), str):
-            try:
-                visit['last_visit'] = datetime.strptime(visit['last_visit'], '%Y-%m-%d %H:%M:%S')
-            except:
-                pass
+        if visit.get('last_visit'):
+            if isinstance(visit['last_visit'], str):
+                try:
+                    visit['last_visit'] = datetime.strptime(visit['last_visit'], '%Y-%m-%d %H:%M:%S')
+                except:
+                    pass
     
     for visit in stats['recent_visits']:
-        if isinstance(visit.get('visit_timestamp'), str):
-            try:
-                visit['visit_timestamp'] = datetime.strptime(visit['visit_timestamp'], '%Y-%m-%d %H:%M:%S')
-            except:
-                pass
+        if visit.get('visit_timestamp'):
+            if isinstance(visit['visit_timestamp'], str):
+                try:
+                    visit['visit_timestamp'] = datetime.strptime(visit['visit_timestamp'], '%Y-%m-%d %H:%M:%S')
+                except:
+                    pass
     
+    # Formatear fechas para los gráficos (convertir a string con formato consistente)
     for day in stats['visits_by_day']:
-        if isinstance(day.get('visit_date'), str):
-            try:
-                day['visit_date'] = datetime.strptime(day['visit_date'], '%Y-%m-%d').date()
-            except:
-                pass
+        if day.get('visit_date'):
+            if hasattr(day['visit_date'], 'strftime'):
+                # Es un objeto date/datetime
+                day['visit_date_formatted'] = day['visit_date'].strftime('%d/%m')
+            elif isinstance(day['visit_date'], str):
+                # Es string, intentar parsearlo
+                try:
+                    parsed_date = datetime.strptime(day['visit_date'], '%Y-%m-%d').date()
+                    day['visit_date_formatted'] = parsed_date.strftime('%d/%m')
+                    day['visit_date'] = parsed_date
+                except:
+                    day['visit_date_formatted'] = day['visit_date']
+            else:
+                day['visit_date_formatted'] = str(day['visit_date'])
     
     return render_template('analytics.html', stats=stats, period=days)
 
