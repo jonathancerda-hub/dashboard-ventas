@@ -1763,16 +1763,19 @@ def analytics():
             if hasattr(day['visit_date'], 'strftime'):
                 # Es un objeto date/datetime
                 day['visit_date_formatted'] = day['visit_date'].strftime('%d/%m')
+                del day['visit_date']  # Eliminar el objeto date para evitar problemas de serialización
             elif isinstance(day['visit_date'], str):
                 # Es string, intentar parsearlo
                 try:
                     parsed_date = datetime.strptime(day['visit_date'], '%Y-%m-%d').date()
                     day['visit_date_formatted'] = parsed_date.strftime('%d/%m')
-                    day['visit_date'] = parsed_date
+                    del day['visit_date']
                 except:
                     day['visit_date_formatted'] = day['visit_date']
+                    del day['visit_date']
             else:
                 day['visit_date_formatted'] = str(day['visit_date'])
+                del day['visit_date']
         else:
             # Si no hay fecha, poner un valor por defecto
             day['visit_date_formatted'] = 'N/A'
