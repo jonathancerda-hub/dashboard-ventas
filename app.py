@@ -1,9 +1,10 @@
 # app.py - Dashboard de Ventas Farmacéuticas
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
 from dotenv import load_dotenv
 from odoo_manager import OdooManager
 from google_sheets_manager import GoogleSheetsManager
+from analytics_db import AnalyticsDB
 import os
 import pandas as pd
 import json
@@ -41,6 +42,53 @@ gs_manager = GoogleSheetsManager(
     credentials_file='credentials.json',
     sheet_name=os.getenv('GOOGLE_SHEET_NAME')
 )
+
+# Inicializar sistema de analytics
+analytics_db = AnalyticsDB()
+
+# --- Middleware para Analytics ---
+
+@app.before_request
+def before_request():
+    """Registra información de la petición antes de procesarla."""
+    g.start_time = datetime.now()
+
+@app.after_request
+def after_request(response):
+    """Registra la visita después de procesar la petición."""
+    # Solo registrar si el usuario está logueado y la petición es exitosa
+    if 'username' in session and response.status_code == 200:
+        # No registrar peticiones a archivos estáticos
+        if not request.path.startswith('/static/'):
+            try:
+                # Mapeo de rutas a títulos
+                page_titles = {
+                    '/': 'Dashboard Principal',
+                    '/dashboard': 'Dashboard de Ventas',
+                    '/equipo-ventas': 'Equipo de Ventas',
+                    '/meta': 'Metas de Ventas',
+                    '/sales': 'Ventas Detalladas',
+                    '/metas-vendedor': 'Metas por Vendedor',
+                    '/dashboard-linea': 'Dashboard por Línea',
+                    '/analytics': 'Analytics y Estadísticas'
+                }
+                
+                page_title = page_titles.get(request.path, request.path)
+                
+                analytics_db.log_visit(
+                    user_email=session.get('username'),
+                    user_name=session.get('user_name'),
+                    page_url=request.path,
+                    page_title=page_title,
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent'),
+                    referrer=request.referrer,
+                    method=request.method
+                )
+            except Exception as e:
+                print(f"⚠️ Error al registrar analytics: {e}")
+    
+    return response
 
 # --- Funciones Auxiliares ---
 
@@ -1654,6 +1702,67 @@ def export_dashboard_details():
     except Exception as e:
         flash(f'Error al exportar los detalles del dashboard: {str(e)}', 'danger')
         return redirect(url_for('dashboard'))
+
+
+# --- Ruta de Analytics ---
+@app.route('/analytics')
+def analytics():
+    """Dashboard de estadísticas de uso del sistema."""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    # Lista de administradores que pueden ver analytics
+    admin_emails = [
+        'jonathan.cerda@agrovetmarket.com',
+        'juan.portal@agrovetmarket.com'
+    ]
+    
+    # Verificar si el usuario es administrador
+    if session.get('username') not in admin_emails:
+        flash('No tienes permisos para acceder a esta sección.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Obtener período de análisis
+    period = request.args.get('period', '30')
+    try:
+        days = int(period)
+    except ValueError:
+        days = 30
+    
+    # Obtener estadísticas
+    stats = {
+        'total_visits': analytics_db.get_total_visits(days),
+        'unique_users': analytics_db.get_unique_users(days),
+        'visits_by_user': analytics_db.get_visits_by_user(days),
+        'visits_by_page': analytics_db.get_visits_by_page(days),
+        'visits_by_day': analytics_db.get_visits_by_day(days),
+        'visits_by_hour': analytics_db.get_visits_by_hour(min(days, 7)),
+        'recent_visits': analytics_db.get_recent_visits(50)
+    }
+    
+    # Convertir fechas de string a datetime si es necesario (para SQLite)
+    for visit in stats['visits_by_user']:
+        if isinstance(visit.get('last_visit'), str):
+            try:
+                visit['last_visit'] = datetime.strptime(visit['last_visit'], '%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+    
+    for visit in stats['recent_visits']:
+        if isinstance(visit.get('visit_timestamp'), str):
+            try:
+                visit['visit_timestamp'] = datetime.strptime(visit['visit_timestamp'], '%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+    
+    for day in stats['visits_by_day']:
+        if isinstance(day.get('visit_date'), str):
+            try:
+                day['visit_date'] = datetime.strptime(day['visit_date'], '%Y-%m-%d').date()
+            except:
+                pass
+    
+    return render_template('analytics.html', stats=stats, period=days)
 
 
 if __name__ == '__main__':
