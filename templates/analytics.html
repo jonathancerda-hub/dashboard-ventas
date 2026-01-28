@@ -351,9 +351,18 @@ function changePeriod(days) {
 // Gráfico de Visitas por Día
 const chartElement = document.getElementById('visitsPerDayChart');
 if (chartElement) {
+    console.log('Dataset completo:', chartElement.dataset);
+    console.log('Labels raw:', chartElement.dataset.labels);
+    console.log('Visits raw:', chartElement.dataset.visits);
+    console.log('Users raw:', chartElement.dataset.users);
+    
     const labels = JSON.parse(chartElement.dataset.labels || '[]');
     const visits = JSON.parse(chartElement.dataset.visits || '[]');
     const users = JSON.parse(chartElement.dataset.users || '[]');
+    
+    console.log('Labels parsed:', labels);
+    console.log('Visits parsed:', visits);
+    console.log('Users parsed:', users);
     
     new Chart(chartElement, {
         type: 'line',
