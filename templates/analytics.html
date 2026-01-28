@@ -221,9 +221,12 @@
     <!-- Gráfico de Visitas por Día -->
     <div class="chart-card">
         <h2><i class="bi bi-calendar3"></i> Visitas por Día</h2>
-        {% if stats.visits_by_day %}
+        {% if stats.chart_labels %}
         <div class="chart-container">
-            <canvas id="visitsPerDayChart"></canvas>
+            <canvas id="visitsPerDayChart"
+                    data-labels='{{ stats.chart_labels | tojson }}'
+                    data-visits='{{ stats.chart_visits | tojson }}'
+                    data-users='{{ stats.chart_unique_users | tojson }}'></canvas>
         </div>
         {% else %}
         <div class="no-data">No hay datos disponibles para este período</div>
@@ -346,47 +349,53 @@ function changePeriod(days) {
 }
 
 // Gráfico de Visitas por Día
-{% if stats.chart_labels and stats.chart_visits %}
-const visitsPerDayData = {
-    labels: {{ stats.chart_labels | safe | tojson }},
-    datasets: [{
-        label: 'Visitas',
-        data: {{ stats.chart_visits | safe | tojson }},
-        borderColor: '#875A7B',
-        backgroundColor: 'rgba(135, 90, 123, 0.1)',
-        tension: 0.4,
-        fill: true
-    }, {
-        label: 'Usuarios Únicos',
-        data: {{ stats.chart_unique_users | safe | tojson }},
-        borderColor: '#00A09D',
-        backgroundColor: 'rgba(0, 160, 157, 0.1)',
-        tension: 0.4,
-        fill: true
-    }]
-};
-
-new Chart(document.getElementById('visitsPerDayChart'), {
-    type: 'line',
-    data: visitsPerDayData,
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'top',
-            }
+const chartElement = document.getElementById('visitsPerDayChart');
+if (chartElement) {
+    const labels = JSON.parse(chartElement.dataset.labels || '[]');
+    const visits = JSON.parse(chartElement.dataset.visits || '[]');
+    const users = JSON.parse(chartElement.dataset.users || '[]');
+    
+    new Chart(chartElement, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Visitas',
+                data: visits,
+                borderColor: '#875A7B',
+                backgroundColor: 'rgba(135, 90, 123, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Usuarios Únicos',
+                data: users,
+                borderColor: '#00A09D',
+                backgroundColor: 'rgba(0, 160, 157, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
         },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    precision: 0
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
                 }
             }
         }
-    }
-});
+    });
+}
+{% else %}
+console.log('No hay datos para el gráfico de visitas por día');
 {% endif %}
 
 // Gráfico de Visitas por Hora
