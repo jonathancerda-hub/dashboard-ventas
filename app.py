@@ -1773,6 +1773,12 @@ def analytics():
                     day['visit_date_formatted'] = day['visit_date']
             else:
                 day['visit_date_formatted'] = str(day['visit_date'])
+        else:
+            # Si no hay fecha, poner un valor por defecto
+            day['visit_date_formatted'] = 'N/A'
+    
+    # Debug: imprimir para verificar
+    print(f"🔍 DEBUG visits_by_day: {stats['visits_by_day']}")
     
     return render_template('analytics.html', stats=stats, period=days)
 
