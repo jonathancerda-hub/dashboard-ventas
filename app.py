@@ -1757,22 +1757,27 @@ def analytics():
                 except:
                     pass
     
-    # Formatear fechas para los gráficos (convertir a string con formato consistente)
-    for day in stats['visits_by_day']:
+    # Preparar datos limpios para los gráficos (solo strings y números)
+    chart_labels = []
+    chart_visits = []
+    chart_unique_users = []
+    
+    for day in reversed(stats['visits_by_day']):
         if day.get('visit_date'):
             if hasattr(day['visit_date'], 'strftime'):
-                day['visit_date_formatted'] = day['visit_date'].strftime('%d/%m')
-            elif isinstance(day['visit_date'], str):
-                try:
-                    parsed_date = datetime.strptime(day['visit_date'], '%Y-%m-%d').date()
-                    day['visit_date_formatted'] = parsed_date.strftime('%d/%m')
-                except:
-                    day['visit_date_formatted'] = day['visit_date']
+                chart_labels.append(day['visit_date'].strftime('%d/%m'))
             else:
-                day['visit_date_formatted'] = str(day['visit_date'])
-            del day['visit_date']  # Eliminar objeto date que causa error en JavaScript
+                chart_labels.append(str(day['visit_date']))
         else:
-            day['visit_date_formatted'] = 'N/A'
+            chart_labels.append('N/A')
+        
+        chart_visits.append(day.get('visit_count', 0))
+        chart_unique_users.append(day.get('unique_users', 0))
+    
+    stats['chart_labels'] = chart_labels
+    stats['chart_visits'] = chart_visits
+    stats['chart_unique_users'] = chart_unique_users
+
     
     return render_template('analytics.html', stats=stats, period=days)
 
