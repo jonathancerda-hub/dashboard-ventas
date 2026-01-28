@@ -348,17 +348,17 @@ function changePeriod(days) {
 // Gráfico de Visitas por Día
 {% if stats.visits_by_day %}
 const visitsPerDayData = {
-    labels: {{ [day.visit_date_formatted for day in stats.visits_by_day[::-1]] | tojson }},
+    labels: [{% for day in stats.visits_by_day | reverse %}'{{ day.visit_date_formatted }}'{% if not loop.last %},{% endif %}{% endfor %}],
     datasets: [{
         label: 'Visitas',
-        data: {{ [day.visit_count for day in stats.visits_by_day[::-1]] | tojson }},
+        data: [{% for day in stats.visits_by_day | reverse %}{{ day.visit_count }}{% if not loop.last %},{% endif %}{% endfor %}],
         borderColor: '#875A7B',
         backgroundColor: 'rgba(135, 90, 123, 0.1)',
         tension: 0.4,
         fill: true
     }, {
         label: 'Usuarios Únicos',
-        data: {{ [day.unique_users for day in stats.visits_by_day[::-1]] | tojson }},
+        data: [{% for day in stats.visits_by_day | reverse %}{{ day.unique_users }}{% if not loop.last %},{% endif %}{% endfor %}],
         borderColor: '#00A09D',
         backgroundColor: 'rgba(0, 160, 157, 0.1)',
         tension: 0.4,
