@@ -1761,24 +1761,18 @@ def analytics():
     for day in stats['visits_by_day']:
         if day.get('visit_date'):
             if hasattr(day['visit_date'], 'strftime'):
-                # Es un objeto date/datetime
                 day['visit_date_formatted'] = day['visit_date'].strftime('%d/%m')
             elif isinstance(day['visit_date'], str):
-                # Es string, intentar parsearlo
                 try:
                     parsed_date = datetime.strptime(day['visit_date'], '%Y-%m-%d').date()
                     day['visit_date_formatted'] = parsed_date.strftime('%d/%m')
-                    day['visit_date'] = parsed_date
                 except:
                     day['visit_date_formatted'] = day['visit_date']
             else:
                 day['visit_date_formatted'] = str(day['visit_date'])
+            del day['visit_date']  # Eliminar objeto date que causa error en JavaScript
         else:
-            # Si no hay fecha, poner un valor por defecto
             day['visit_date_formatted'] = 'N/A'
-    
-    # Debug: imprimir para verificar
-    print(f"🔍 DEBUG visits_by_day: {stats['visits_by_day']}")
     
     return render_template('analytics.html', stats=stats, period=days)
 
