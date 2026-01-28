@@ -346,19 +346,19 @@ function changePeriod(days) {
 }
 
 // Gráfico de Visitas por Día
-{% if stats.visits_by_day %}
+{% if stats.chart_labels and stats.chart_visits %}
 const visitsPerDayData = {
-    labels: {{ stats.chart_labels | tojson }},
+    labels: {{ stats.chart_labels | safe | tojson }},
     datasets: [{
         label: 'Visitas',
-        data: {{ stats.chart_visits | tojson }},
+        data: {{ stats.chart_visits | safe | tojson }},
         borderColor: '#875A7B',
         backgroundColor: 'rgba(135, 90, 123, 0.1)',
         tension: 0.4,
         fill: true
     }, {
         label: 'Usuarios Únicos',
-        data: {{ stats.chart_unique_users | tojson }},
+        data: {{ stats.chart_unique_users | safe | tojson }},
         borderColor: '#00A09D',
         backgroundColor: 'rgba(0, 160, 157, 0.1)',
         tension: 0.4,
