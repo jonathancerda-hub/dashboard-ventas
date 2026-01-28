@@ -1729,15 +1729,15 @@ def analytics():
     except ValueError:
         days = 30
     
-    # Obtener estadísticas
+    # Obtener estadísticas y convertir RealDictRow a diccionarios normales
     stats = {
         'total_visits': analytics_db.get_total_visits(days),
         'unique_users': analytics_db.get_unique_users(days),
-        'visits_by_user': analytics_db.get_visits_by_user(days),
-        'visits_by_page': analytics_db.get_visits_by_page(days),
-        'visits_by_day': analytics_db.get_visits_by_day(days),
-        'visits_by_hour': analytics_db.get_visits_by_hour(min(days, 7)),
-        'recent_visits': analytics_db.get_recent_visits(50)
+        'visits_by_user': [dict(row) for row in analytics_db.get_visits_by_user(days)],
+        'visits_by_page': [dict(row) for row in analytics_db.get_visits_by_page(days)],
+        'visits_by_day': [dict(row) for row in analytics_db.get_visits_by_day(days)],
+        'visits_by_hour': [dict(row) for row in analytics_db.get_visits_by_hour(min(days, 7))],
+        'recent_visits': [dict(row) for row in analytics_db.get_recent_visits(50)]
     }
     
     # Convertir y formatear fechas para compatibilidad con el template
