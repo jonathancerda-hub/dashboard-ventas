@@ -5,6 +5,16 @@ import sqlite3
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 
+# Intentar importar psycopg2 (solo si está disponible)
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+    psycopg2 = None
+    RealDictCursor = None
+
 class AnalyticsDB:
     """Gestiona el registro y consulta de estadísticas de uso del dashboard."""
     
@@ -36,9 +46,13 @@ class AnalyticsDB:
                 conn = sqlite3.connect(self.db_path)
                 conn.row_factory = sqlite3.Row
             else:
-                import psycopg2
-                from psycopg2.extras import RealDictCursor
-                conn = psycopg2.connect(self.database_url)
+                if not PSYCOPG2_AVAILABLE:
+                    print("❌ psycopg2 no disponible. Usando SQLite como fallback.")
+                    self.use_sqlite = True
+                    conn = sqlite3.connect(self.db_path)
+                    conn.row_factory = sqlite3.Row
+                else:
+                    conn = psycopg2.connect(self.database_url)
             
             yield conn
             conn.commit()
@@ -95,9 +109,7 @@ class AnalyticsDB:
                     """)
                 else:
                     # Tabla de visitas para PostgreSQL
-                    try:
-                        import psycopg2
-                    except ImportError:
+                    if not PSYCOPG2_AVAILABLE:
                         print("❌ psycopg2 no está instalado. Instala con: pip install psycopg2-binary")
                         self.enabled = False
                         return
@@ -262,7 +274,6 @@ class AnalyticsDB:
                         LIMIT ?
                     """, (days, limit))
                 else:
-                    from psycopg2.extras import RealDictCursor
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
                     cursor.execute("""
                         SELECT 
@@ -315,7 +326,6 @@ class AnalyticsDB:
                     rows = cursor.fetchall()
                     return [dict(row) for row in rows]
                 else:
-                    from psycopg2.extras import RealDictCursor
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
                     cursor.execute("""
                         SELECT 
@@ -361,7 +371,6 @@ class AnalyticsDB:
                     rows = cursor.fetchall()
                     return [dict(row) for row in rows]
                 else:
-                    from psycopg2.extras import RealDictCursor
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
                     cursor.execute("""
                         SELECT 
@@ -406,7 +415,6 @@ class AnalyticsDB:
                     rows = cursor.fetchall()
                     return [dict(row) for row in rows]
                 else:
-                    from psycopg2.extras import RealDictCursor
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
                     cursor.execute("""
                         SELECT 
@@ -453,7 +461,6 @@ class AnalyticsDB:
                     rows = cursor.fetchall()
                     return [dict(row) for row in rows]
                 else:
-                    from psycopg2.extras import RealDictCursor
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
                     cursor.execute("""
                         SELECT 
@@ -756,3 +763,4 @@ class AnalyticsDB:
         except Exception as e:
             print(f"❌ Error al obtener visitas recientes: {e}")
             return []
+
