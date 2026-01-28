@@ -348,7 +348,7 @@ function changePeriod(days) {
 // Gráfico de Visitas por Día
 {% if stats.visits_by_day %}
 const visitsPerDayData = {
-    labels: [{% for day in stats.visits_by_day | reverse %}'{{ day.visit_date_formatted }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    labels: [{% for day in stats.visits_by_day | reverse %}"{{ day.visit_date_formatted }}"{% if not loop.last %},{% endif %}{% endfor %}],
     datasets: [{
         label: 'Visitas',
         data: [{% for day in stats.visits_by_day | reverse %}{{ day.visit_count }}{% if not loop.last %},{% endif %}{% endfor %}],
