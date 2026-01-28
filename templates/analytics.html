@@ -352,7 +352,7 @@ const visitsPerDayData = {
         {%- if day.visit_date.strftime is defined -%}
             '{{ day.visit_date.strftime("%d/%m") }}'
         {%- else -%}
-            '{{ day.visit_date }}'
+            '{{ day.visit_date | string | slice(5,10) | replace("-", "/") }}'
         {%- endif -%}
         {% if not loop.last %},{% endif %}{% endfor %}],
     datasets: [{
