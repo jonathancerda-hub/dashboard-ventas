@@ -166,6 +166,14 @@
     }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Datos del gráfico como variable global
+window.analyticsData = {
+    labels: ["28/01", "27/01", "26/01"],
+    visits: [83, 71, 49],
+    users: [12, 11, 7]
+};
+</script>
 {% endblock %}
 
 {% block content %}
@@ -345,20 +353,44 @@ function changePeriod(days) {
     window.location.href = '{{ url_for("analytics") }}?period=' + days;
 }
 
-// Gráfico de Visitas por Día - Código generado en Python
-{{ stats.chart_js_code | safe }}
-
-// Test con datos hardcodeados
-if (document.getElementById('visitsPerDayChart') && false) {
+// Gráfico de Visitas por Día - Test con datos hardcodeados
+if (document.getElementById('visitsPerDayChart')) {
     new Chart(document.getElementById('visitsPerDayChart'), {
         type: 'line',
         data: {
-            labels: ["28/01", "27/01"],
+            labels: window.analyticsData.labels,
             datasets: [{
-                label: 'Test',
-                data: [10, 20],
-                borderColor: '#875A7B'
+                label: 'Visitas',
+                data: window.analyticsData.visits,
+                borderColor: '#875A7B',
+                backgroundColor: 'rgba(135, 90, 123, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Usuarios Únicos',
+                data: window.analyticsData.users,
+                borderColor: '#00A09D',
+                backgroundColor: 'rgba(0, 160, 157, 0.1)',
+                tension: 0.4,
+                fill: true
             }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
         }
     });
 }
