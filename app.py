@@ -1738,8 +1738,8 @@ def analytics():
     total_allowed_users = 0
     try:
         with open('allowed_users.json', 'r', encoding='utf-8') as f:
-            allowed_users = json.load(f)
-            total_allowed_users = len(allowed_users)
+            allowed_users_data = json.load(f)
+            total_allowed_users = len(allowed_users_data.get('allowed_emails', []))
     except:
         total_allowed_users = 0
     
