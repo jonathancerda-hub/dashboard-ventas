@@ -13,10 +13,15 @@ import calendar
 from datetime import datetime, timedelta
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
+import pytz
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+
+# Timezone de Perú
+PERU_TZ = pytz.timezone('America/Lima')
+UTC_TZ = pytz.UTC
 
 # Configuración para deshabilitar cache de templates
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -1741,19 +1746,38 @@ def analytics():
     }
     
     # Convertir y formatear fechas para compatibilidad con el template
+    # IMPORTANTE: Convertir timestamps de UTC a hora de Perú
     for visit in stats['visits_by_user']:
         if visit.get('last_visit'):
-            if isinstance(visit['last_visit'], str):
+            if isinstance(visit['last_visit'], datetime):
+                # Asumir que viene en UTC, convertir a Perú
+                if visit['last_visit'].tzinfo is None:
+                    utc_time = UTC_TZ.localize(visit['last_visit'])
+                    peru_time = utc_time.astimezone(PERU_TZ)
+                    visit['last_visit'] = peru_time.replace(tzinfo=None)
+            elif isinstance(visit['last_visit'], str):
                 try:
-                    visit['last_visit'] = datetime.strptime(visit['last_visit'], '%Y-%m-%d %H:%M:%S')
+                    dt = datetime.strptime(visit['last_visit'], '%Y-%m-%d %H:%M:%S')
+                    utc_time = UTC_TZ.localize(dt)
+                    peru_time = utc_time.astimezone(PERU_TZ)
+                    visit['last_visit'] = peru_time.replace(tzinfo=None)
                 except:
                     pass
     
     for visit in stats['recent_visits']:
         if visit.get('visit_timestamp'):
-            if isinstance(visit['visit_timestamp'], str):
+            if isinstance(visit['visit_timestamp'], datetime):
+                # Asumir que viene en UTC, convertir a Perú
+                if visit['visit_timestamp'].tzinfo is None:
+                    utc_time = UTC_TZ.localize(visit['visit_timestamp'])
+                    peru_time = utc_time.astimezone(PERU_TZ)
+                    visit['visit_timestamp'] = peru_time.replace(tzinfo=None)
+            elif isinstance(visit['visit_timestamp'], str):
                 try:
-                    visit['visit_timestamp'] = datetime.strptime(visit['visit_timestamp'], '%Y-%m-%d %H:%M:%S')
+                    dt = datetime.strptime(visit['visit_timestamp'], '%Y-%m-%d %H:%M:%S')
+                    utc_time = UTC_TZ.localize(dt)
+                    peru_time = utc_time.astimezone(PERU_TZ)
+                    visit['visit_timestamp'] = peru_time.replace(tzinfo=None)
                 except:
                     pass
     
