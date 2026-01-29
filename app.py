@@ -204,7 +204,13 @@ def login():
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
             
+
     return render_template('login.html')
+
+@app.route('/desing-login')
+def desing_login():
+    return render_template('desing_login.html')
+
 
 @app.route('/logout')
 def logout():

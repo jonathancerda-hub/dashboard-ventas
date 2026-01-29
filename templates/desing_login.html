@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Preload fonts for immediate impact -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<style>
+    :root {
+        --primary-color: #249b8a;
+        --primary-dark: #19786a;
+        --text-color: #333;
+        --text-light: #666;
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.5);
+    }
+
+    body {
+        font-family: 'Montserrat', sans-serif;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Prevent scrollbars on the main background */
+    }
+
+    /* Animated Background */
+    .landing-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: url("{{ url_for('static', filename='img/login-bg.png') }}") no-repeat center center fixed;
+        background-size: cover;
+        z-index: -1;
+    }
+
+    /* Overlay for better text readability and mood */
+    .landing-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(36, 155, 138, 0.2) 0%, rgba(0, 0, 0, 0.4) 100%);
+        backdrop-filter: blur(2px);
+    }
+
+    /* Main Container */
+    .landing-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    /* Glassmorphism Card */
+    .login-glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        padding: 40px;
+        width: 100%;
+        max-width: 420px;
+        transform: translateY(20px);
+        opacity: 0;
+        animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    @keyframes fadeInUp {
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    /* Logo Section */
+    .brand-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .brand-title {
+        color: var(--text-color);
+        font-weight: 700;
+        font-size: 28px;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+
+    .brand-subtitle {
+        color: var(--primary-color);
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-top: 5px;
+    }
+
+    .divider {
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+        margin: 20px auto;
+        width: 80%;
+        opacity: 0.5;
+    }
+
+    /* Form Elements */
+    .input-group {
+        position: relative;
+        margin-bottom: 25px;
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #888;
+        font-size: 1.2rem;
+        transition: color 0.3s ease;
+    }
+
+    .glass-input {
+        width: 100%;
+        padding: 16px 16px 16px 50px; /* Space for icon */
+        border: 2px solid transparent;
+        border-radius: 12px;
+        background: #f0f2f5;
+        font-size: 16px;
+        font-family: inherit;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-sizing: border-box;
+    }
+
+    .glass-input:focus {
+        outline: none;
+        background: #fff;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(36, 155, 138, 0.1);
+    }
+
+    .glass-input:focus + .input-icon {
+        color: var(--primary-color);
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text-color);
+        font-size: 0.9rem;
+        margin-left: 5px;
+    }
+
+    /* Button */
+    .btn-glow {
+        border: none;
+        outline: none;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        width: 100%;
+        padding: 16px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        position: relative;
+        z-index: 0;
+        transition: transform 0.2s ease, box-shadow 0.3s ease;
+        box-shadow: 0 4px 15px rgba(36, 155, 138, 0.3);
+    }
+
+    .btn-glow:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(36, 155, 138, 0.4);
+    }
+
+    .btn-glow:active {
+        transform: translateY(1px);
+    }
+
+    /* Utilities */
+    .forgot-password {
+        text-align: right;
+        margin-bottom: 20px;
+    }
+
+    .forgot-password a {
+        color: var(--text-light);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.2s;
+    }
+
+    .forgot-password a:hover {
+        color: var(--primary-color);
+    }
+
+    .footer-text {
+        text-align: center;
+        margin-top: 20px;
+        color: #eee; /* Light color for contrast on dark bg if card is transparent, but card is opaque */
+        color: var(--text-light);
+        font-size: 0.8rem;
+    }
+
+    /* Alerts */
+    .alert-container {
+        margin-bottom: 20px;
+    }
+    
+    .alert {
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+        text-align: center;
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+</style>
+
+<div class="landing-background">
+    <div class="landing-overlay"></div>
+</div>
+
+<div class="landing-container">
+    <div class="login-glass-card">
+        <div class="brand-header">
+            <!-- You can add a logo img here if available -->
+             <!-- <img src="{{ url_for('static', filename='agrovet-market.png') }}" alt="Logo" style="height: 40px; margin-bottom: 10px;"> -->
+            <h1 class="brand-title">AGROVET MARKET</h1>
+            <div class="brand-subtitle">Intelligence Dashboard</div>
+            <div class="divider"></div>
+        </div>
+
+        <div class="alert-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Pointing to the real login route for functionality -->
+        <form method="post" action="{{ url_for('login') }}" autocomplete="on">
+            <div class="form-group">
+                <label for="username" class="form-label">Email Corporativo</label>
+                <div class="input-group">
+                    <input type="email" class="glass-input" id="username" name="username" required autocomplete="email" placeholder="nombre@agrovetmarket.com">
+                    <i class="bi bi-person input-icon"></i>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Contraseña</label>
+                <div class="input-group">
+                    <input type="password" class="glass-input" id="password" name="password" required autocomplete="current-password" placeholder="••••••••">
+                    <i class="bi bi-lock input-icon"></i>
+                    <i class="bi bi-eye-slash" id="togglePassword" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #888;"></i>
+                </div>
+            </div>
+
+            <div class="forgot-password">
+                <a href="#">¿Olvidaste tu contraseña?</a>
+            </div>
+
+            <button type="submit" class="btn-glow">
+                INGRESAR AL SISTEMA
+            </button>
+        </form>
+
+        <div class="footer-text">
+            &copy; 2025 Agrovet Market. Todos los derechos reservados.
+        </div>
+    </div>
+</div>
+
+<script>
+    // Password Toggle Script
+    document.addEventListener('DOMContentLoaded', function() {
+        const passwordInput = document.getElementById('password');
+        const toggleBtn = document.getElementById('togglePassword');
+        
+        if (toggleBtn && passwordInput) {
+            toggleBtn.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                this.classList.toggle('bi-eye');
+                this.classList.toggle('bi-eye-slash');
+            });
+        }
+    });
+
+    // Simple interaction effect for inputs
+    const inputs = document.querySelectorAll('.glass-input');
+    inputs.forEach(input => {
+        input.addEventListener('focus', () => {
+            input.parentElement.querySelector('.input-icon').style.color = 'var(--primary-color)';
+        });
+        input.addEventListener('blur', () => {
+            input.parentElement.querySelector('.input-icon').style.color = '#888';
+        });
+    });
+</script>
+
+{% endblock %}
