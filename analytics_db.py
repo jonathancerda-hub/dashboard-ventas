@@ -4,6 +4,10 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 from contextlib import contextmanager
+import pytz
+
+# Timezone de Perú
+PERU_TZ = pytz.timezone('America/Lima')
 
 # Intentar importar psycopg2 (solo si está disponible)
 try:
@@ -160,6 +164,9 @@ class AnalyticsDB:
             return
         
         try:
+            # Obtener timestamp en hora de Perú
+            peru_time = datetime.now(PERU_TZ)
+            
             with self.get_connection() as conn:
                 if not conn:
                     return
@@ -173,7 +180,7 @@ class AnalyticsDB:
                          user_agent, referrer, method, visit_timestamp)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (user_email, user_name, page_url, page_title, ip_address, 
-                          user_agent, referrer, method, datetime.now()))
+                          user_agent, referrer, method, peru_time))
                 else:
                     cursor.execute("""
                         INSERT INTO page_visits 
@@ -181,7 +188,7 @@ class AnalyticsDB:
                          user_agent, referrer, method, visit_timestamp)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (user_email, user_name, page_url, page_title, ip_address, 
-                          user_agent, referrer, method, datetime.now()))
+                          user_agent, referrer, method, peru_time))
                 
         except Exception as e:
             print(f"❌ Error al registrar visita: {e}")

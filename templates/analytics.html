@@ -352,32 +352,8 @@ window.analyticsData = {
 function changePeriod(days) {
     window.location.href = '{{ url_for("analytics") }}?period=' + days;
 }
-
-// Gráfico de Visitas por Día - Test con datos hardcodeados
-if (document.getElementById('visitsPerDayChart')) {
-    new Chart(document.getElementById('visitsPerDayChart'), {
-        type: 'line',
-        data: {
-            labels: window.analyticsData.labels,
-            datasets: [{
-                label: 'Visitas',
-                data: window.analyticsData.visits,
-                borderColor: '#875A7B',
-                backgroundColor: 'rgba(135, 90, 123, 0.1)',
-                tension: 0.4,
-                fill: true
-            }, {
-                label: 'Usuarios Únicos',
-                data: window.analyticsData.users,
-                borderColor: '#00A09D',
-                backgroundColor: 'rgba(0, 160, 157, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
+</script>
+{% endblock %}
             plugins: {
                 legend: {
                     position: 'top',
@@ -475,4 +451,3 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{% endblock %}
