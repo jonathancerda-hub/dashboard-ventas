@@ -1734,10 +1734,20 @@ def analytics():
     except ValueError:
         days = 30
     
+    # Contar usuarios permitidos en allowed_users.json
+    total_allowed_users = 0
+    try:
+        with open('allowed_users.json', 'r', encoding='utf-8') as f:
+            allowed_users = json.load(f)
+            total_allowed_users = len(allowed_users)
+    except:
+        total_allowed_users = 0
+    
     # Obtener estadísticas y convertir RealDictRow a diccionarios normales
     stats = {
         'total_visits': analytics_db.get_total_visits(days),
         'unique_users': analytics_db.get_unique_users(days),
+        'total_allowed_users': total_allowed_users,
         'visits_by_user': [dict(row) for row in analytics_db.get_visits_by_user(days)],
         'visits_by_page': [dict(row) for row in analytics_db.get_visits_by_page(days)],
         'visits_by_day': [dict(row) for row in analytics_db.get_visits_by_day(days)],
