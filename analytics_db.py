@@ -164,8 +164,9 @@ class AnalyticsDB:
             return
         
         try:
-            # Obtener timestamp en hora de Perú
-            peru_time = datetime.now(PERU_TZ)
+            # Obtener timestamp en hora de Perú (sin timezone info para compatibilidad)
+            utc_now = datetime.now(pytz.UTC)
+            peru_time = utc_now.astimezone(PERU_TZ).replace(tzinfo=None)
             
             with self.get_connection() as conn:
                 if not conn:

@@ -229,25 +229,20 @@ window.analyticsData = {
     <!-- Gráfico de Visitas por Día -->
     <div class="chart-card">
         <h2><i class="bi bi-calendar3"></i> Visitas por Día</h2>
-        {% if stats.chart_js_code %}
-        <div class="chart-container">
-            <canvas id="visitsPerDayChart"></canvas>
+        <div class="no-data">
+            <i class="bi bi-exclamation-circle" style="font-size: 48px; color: #875A7B; margin-bottom: 10px;"></i>
+            <p>Los gráficos están temporalmente deshabilitados por problemas de compatibilidad.</p>
+            <p style="font-size: 14px; color: #666;">Los datos se están registrando correctamente y puedes verlos en las tablas abajo.</p>
         </div>
-        {% else %}
-        <div class="no-data">No hay datos disponibles para este período</div>
-        {% endif %}
     </div>
 
     <!-- Gráfico de Visitas por Hora -->
     <div class="chart-card">
         <h2><i class="bi bi-clock"></i> Visitas por Hora del Día</h2>
-        {% if stats.visits_by_hour %}
-        <div class="chart-container">
-            <canvas id="visitsPerHourChart"></canvas>
+        <div class="no-data">
+            <i class="bi bi-exclamation-circle" style="font-size: 48px; color: #875A7B; margin-bottom: 10px;"></i>
+            <p>Los gráficos están temporalmente deshabilitados por problemas de compatibilidad.</p>
         </div>
-        {% else %}
-        <div class="no-data">No hay datos disponibles</div>
-        {% endif %}
     </div>
 
     <!-- Tabla de Usuarios Más Activos -->
