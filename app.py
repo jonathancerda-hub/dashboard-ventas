@@ -1309,6 +1309,14 @@ def export_excel_sales():
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    # --- Verificación de Permisos ---
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com"]
+    is_admin = session.get('username') in admin_users
+    if not is_admin:
+        flash('No tienes permiso para exportar datos.', 'warning')
+        return redirect(url_for('sales'))
+    # --- Fin Verificación ---
+    
     try:
         # Obtener filtros de la URL
         date_from = request.args.get('date_from')
@@ -1522,7 +1530,7 @@ def export_dashboard_details():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
     if not is_admin:
         flash('No tienes permiso para realizar esta acción.', 'warning')
@@ -1719,7 +1727,8 @@ def analytics():
     # Lista de administradores que pueden ver analytics
     admin_emails = [
         'jonathan.cerda@agrovetmarket.com',
-        'juan.portal@agrovetmarket.com'
+        'juan.portal@agrovetmarket.com',
+        'ena.fernandez@agrovetmarket.com'
     ]
     
     # Verificar si el usuario es administrador
