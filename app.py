@@ -1781,6 +1781,13 @@ def analytics():
                 except:
                     pass
     
+    # Ajustar horas de UTC a Perú (restar 5 horas)
+    for hour_stat in stats['visits_by_hour']:
+        if hour_stat.get('hour') is not None:
+            utc_hour = int(hour_stat['hour'])
+            peru_hour = (utc_hour - 5) % 24  # Perú es UTC-5
+            hour_stat['hour'] = peru_hour
+    
     # Preparar datos limpios para los gráficos (solo strings y números)
     chart_labels = []
     chart_visits = []
