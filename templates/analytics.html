@@ -418,36 +418,3 @@ new Chart(document.getElementById('visitsPerHourChart'), {
 });
 {% endif %}
 
-// Inicializar gráfico cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', function() {
-    const canvas = document.getElementById('visitsPerDayChart');
-    if (!canvas) {
-        console.error('Canvas no encontrado');
-        return;
-    }
-    
-    try {
-        new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: ['28/01', '27/01', '26/01'],
-                datasets: [{
-                    label: 'Visitas',
-                    data: [96, 83, 71],
-                    borderColor: '#875A7B',
-                    backgroundColor: 'rgba(135, 90, 123, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-        console.log('Gráfico creado exitosamente');
-    } catch (error) {
-        console.error('Error al crear gráfico:', error);
-    }
-});
-</script>
