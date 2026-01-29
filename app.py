@@ -1778,44 +1778,48 @@ def analytics():
     import json
     chart_js_code = f"""
 // Gráfico generado desde Python
-new Chart(document.getElementById('visitsPerDayChart'), {{
-    type: 'line',
-    data: {{
-        labels: {json.dumps(chart_labels)},
-        datasets: [{{
-            label: 'Visitas',
-            data: {json.dumps(chart_visits)},
-            borderColor: '#875A7B',
-            backgroundColor: 'rgba(135, 90, 123, 0.1)',
-            tension: 0.4,
-            fill: true
-        }}, {{
-            label: 'Usuarios Únicos',
-            data: {json.dumps(chart_unique_users)},
-            borderColor: '#00A09D',
-            backgroundColor: 'rgba(0, 160, 157, 0.1)',
-            tension: 0.4,
-            fill: true
-        }}]
-    }},
-    options: {{
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {{
-            legend: {{
-                position: 'top',
-            }}
+if (document.getElementById('visitsPerDayChart')) {{
+    new Chart(document.getElementById('visitsPerDayChart'), {{
+        type: 'line',
+        data: {{
+            labels: {json.dumps(chart_labels)},
+            datasets: [{{
+                label: 'Visitas',
+                data: {json.dumps(chart_visits)},
+                borderColor: '#875A7B',
+                backgroundColor: 'rgba(135, 90, 123, 0.1)',
+                tension: 0.4,
+                fill: true
+            }}, {{
+                label: 'Usuarios Únicos',
+                data: {json.dumps(chart_unique_users)},
+                borderColor: '#00A09D',
+                backgroundColor: 'rgba(0, 160, 157, 0.1)',
+                tension: 0.4,
+                fill: true
+            }}]
         }},
-        scales: {{
-            y: {{
-                beginAtZero: true,
-                ticks: {{
-                    precision: 0
+        options: {{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {{
+                legend: {{
+                    position: 'top',
+                }}
+            }},
+            scales: {{
+                y: {{
+                    beginAtZero: true,
+                    ticks: {{
+                        precision: 0
+                    }}
                 }}
             }}
         }}
-    }}
-}});
+    }});
+}} else {{
+    console.error('Canvas visitsPerDayChart no encontrado');
+}}
 """
     
     stats['chart_js_code'] = chart_js_code

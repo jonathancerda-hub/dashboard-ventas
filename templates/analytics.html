@@ -348,6 +348,21 @@ function changePeriod(days) {
 // Gráfico de Visitas por Día - Código generado en Python
 {{ stats.chart_js_code | safe }}
 
+// Test con datos hardcodeados
+if (document.getElementById('visitsPerDayChart') && false) {
+    new Chart(document.getElementById('visitsPerDayChart'), {
+        type: 'line',
+        data: {
+            labels: ["28/01", "27/01"],
+            datasets: [{
+                label: 'Test',
+                data: [10, 20],
+                borderColor: '#875A7B'
+            }]
+        }
+    });
+}
+
 // Gráfico de Visitas por Hora
 {% if stats.visits_by_hour %}
 const visitsPerHourData = {
