@@ -30,6 +30,7 @@ Usuarios con acceso a la sección especializada de ventas farmacéuticas.
 - jonathan.cerda@agrovetmarket.com
 - janet.hueza@agrovetmarket.com
 - juan.portal@agrovetmarket.com
+- juana.lobaton@agrovetmarket.com
 
 **Permisos adicionales:**
 - ✅ Todos los permisos de Usuario Básico
@@ -50,14 +51,16 @@ Usuarios autorizados para exportar datos a Excel.
 - janet.hueza@agrovetmarket.com
 - juan.portal@agrovetmarket.com
 - AMAHOdoo@agrovetmarket.com
-- **miguel.hernandez@agrovetmarket.com** ⭐ _Recientemente agregado_
+- miguel.hernandez@agrovetmarket.com
+- juana.lobaton@agrovetmarket.com
 
 #### Exportación de Ventas Farmacéuticas:
 - jonathan.cerda@agrovetmarket.com
 - janet.hueza@agrovetmarket.com
 - juan.portal@agrovetmarket.com
 - AMAHOdoo@agrovetmarket.com
-- **miguel.hernandez@agrovetmarket.com** ⭐ _Recientemente agregado_
+- miguel.hernandez@agrovetmarket.com
+- juana.lobaton@agrovetmarket.com
 
 **Permisos adicionales:**
 - ✅ Exportar Detalle de Dashboard (`/export/dashboard/details`)
@@ -73,7 +76,8 @@ Usuarios con acceso al sistema de monitoreo y estadísticas de uso del dashboard
 **Usuarios con este permiso:**
 - jonathan.cerda@agrovetmarket.com
 - juan.portal@agrovetmarket.com
-- **ena.fernandez@agrovetmarket.com** ⭐ _Recientemente agregado_
+- ena.fernandez@agrovetmarket.com
+- juana.lobaton@agrovetmarket.com
 
 **Permisos adicionales:**
 - ✅ Acceso al Dashboard de Analytics (`/analytics`)
@@ -100,6 +104,7 @@ Usuarios con acceso completo a todas las funcionalidades del sistema.
 |---------|-------|----------|
 | Jonathan Cerda | jonathan.cerda@agrovetmarket.com | Usuario Básico + Ventas Farmacéuticas + Exportación + Analytics |
 | Juan Portal | juan.portal@agrovetmarket.com | Usuario Básico + Ventas Farmacéuticas + Exportación + Analytics |
+| Juana Lobatón | juana.lobaton@agrovetmarket.com | Usuario Básico + Ventas Farmacéuticas + Exportación + Analytics |
 
 ---
 
@@ -212,8 +217,8 @@ Los cambios se desplegarán automáticamente en Render.
 1. **Seguridad**: Todos los usuarios deben autenticarse con Google OAuth 2.0 usando su cuenta @agrovetmarket.com
 2. **Auditoría**: El sistema de Analytics registra todas las visitas y accesos
 3. **Confidencialidad**: Todos los datos están protegidos por el disclaimer del footer
-4. **Total de usuarios permitidos**: 42 usuarios en el sistema
-5. **Última actualización**: 29 de enero de 2026
+4. **Total de usuarios permitidos**: 43 usuarios en el sistema
+5. **Última actualización**: 30 de enero de 2026
 
 ---
 
@@ -221,6 +226,7 @@ Los cambios se desplegarán automáticamente en Render.
 
 | Fecha | Usuario | Cambio |
 |-------|---------|--------|
+| 30/01/2026 | juana.lobaton@agrovetmarket.com | ➕ Agregada como superadministradora (todos los permisos) |
 | 29/01/2026 | miguel.hernandez@agrovetmarket.com | ➕ Agregado permiso de exportación |
 | 29/01/2026 | ena.fernandez@agrovetmarket.com | ➕ Agregado permiso de analytics |
 
@@ -231,3 +237,4 @@ Los cambios se desplegarán automáticamente en Render.
 Para solicitar cambios en permisos o accesos, contactar a:
 - **Jonathan Cerda**: jonathan.cerda@agrovetmarket.com
 - **Juan Portal**: juan.portal@agrovetmarket.com
+- **Juana Lobatón**: juana.lobaton@agrovetmarket.com
