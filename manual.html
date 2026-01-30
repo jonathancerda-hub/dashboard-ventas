@@ -221,7 +221,16 @@
                 <p><strong>Tipo de Movimiento:</strong> Solo facturas de venta y notas de crédito (<code>move_id.move_type in ['out_invoice', 'out_refund']</code>).</p>
                 <p><strong>Estado del Movimiento:</strong> Solo asientos contables ya publicados (<code>move_id.state = 'posted'</code>). Las facturas en borrador (<code>'draft'</code>) o canceladas (<code>'cancel'</code>) NO se incluyen en ningún cálculo.</p>
                 <p><strong>Código de Producto:</strong> Se excluyen productos que no tienen una referencia interna (<code>product_id.default_code != False</code>).</p>
-                <p><strong>Categorías Excluidas:</strong> Se omiten productos de categorías específicas de servicio o internas (IDs: <code>[315, 333, 304, 314, 318, 339]</code>).</p>
+                <p><strong>Categorías Excluidas:</strong> Se omiten productos de las siguientes categorías de servicio o internas:
+                    <ul>
+                        <li>MAT - ENVASE MEDIATO (ID: 315)</li>
+                        <li>SERV_LOGISTICOS (ID: 333)</li>
+                        <li>ART - MERCHANDISING (ID: 304)</li>
+                        <li>MAT - ENVASE INMEDIATO (ID: 314)</li>
+                        <li>MPF - EXCIPIENTE (ID: 318)</li>
+                        <li>PCV - MARKETING (ID: 339)</li>
+                    </ul>
+                </p>
                 <p><strong>Impuestos:</strong> Solo se incluyen líneas que tengan aplicados los impuestos "IGV" o "IGV_INC".</p>
             </div>
             <p class="note"><strong>Importante sobre Estados:</strong> El sistema trabaja exclusivamente con facturas en estado <code>'posted'</code>. Esto garantiza que solo se contabilicen transacciones confirmadas y publicadas en el sistema contable. Las facturas en borrador o canceladas no afectan ninguna métrica del dashboard.</p>

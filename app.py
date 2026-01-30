@@ -233,7 +233,7 @@ def sales():
         return redirect(url_for('login'))
     
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
     if not is_admin:
         flash('No tienes permiso para acceder a esta página.', 'warning')
@@ -319,7 +319,7 @@ def dashboard():
     
     try:
         # --- Lógica de Permisos de Administrador ---
-        admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com"]
+        admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
         is_admin = session.get('username') in admin_users
 
         # Obtener año seleccionado (parámetro o año actual por defecto)
@@ -794,7 +794,7 @@ def dashboard_linea():
         return redirect(url_for('login'))
 
     # --- Lógica de Permisos de Administrador ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
 
     try:
@@ -1175,7 +1175,7 @@ def meta():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
     if not is_admin:
         flash('No tienes permiso para acceder a esta página.', 'warning')
@@ -1320,7 +1320,7 @@ def export_excel_sales():
         return redirect(url_for('login'))
     
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
     if not is_admin:
         flash('No tienes permiso para exportar datos.', 'warning')
@@ -1405,7 +1405,7 @@ def metas_vendedor():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
     if not is_admin:
         flash('No tienes permiso para acceder a esta página.', 'warning')
@@ -1540,7 +1540,7 @@ def export_dashboard_details():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com"]
+    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
     is_admin = session.get('username') in admin_users
     if not is_admin:
         flash('No tienes permiso para realizar esta acción.', 'warning')
@@ -1738,7 +1738,8 @@ def analytics():
     admin_emails = [
         'jonathan.cerda@agrovetmarket.com',
         'juan.portal@agrovetmarket.com',
-        'ena.fernandez@agrovetmarket.com'
+        'ena.fernandez@agrovetmarket.com',
+        'juana.lobaton@agrovetmarket.com'
     ]
     
     # Verificar si el usuario es administrador
