@@ -211,12 +211,14 @@ class AnalyticsDB:
                         SELECT COUNT(*) as total
                         FROM page_visits
                         WHERE visit_timestamp >= datetime('now', '-' || ? || ' days')
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 else:
                     cursor.execute("""
                         SELECT COUNT(*) as total
                         FROM page_visits
                         WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 
                 result = cursor.fetchone()
@@ -243,12 +245,14 @@ class AnalyticsDB:
                         SELECT COUNT(DISTINCT user_email) as total
                         FROM page_visits
                         WHERE visit_timestamp >= datetime('now', '-' || ? || ' days')
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 else:
                     cursor.execute("""
                         SELECT COUNT(DISTINCT user_email) as total
                         FROM page_visits
                         WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 
                 result = cursor.fetchone()
@@ -279,6 +283,7 @@ class AnalyticsDB:
                             MAX(visit_timestamp) as last_visit
                         FROM page_visits
                         WHERE visit_timestamp >= datetime('now', '-' || ? || ' days')
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY user_email, user_name
                         ORDER BY visit_count DESC
                         LIMIT ?
@@ -293,6 +298,7 @@ class AnalyticsDB:
                             MAX(visit_timestamp) as last_visit
                         FROM page_visits
                         WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY user_email, user_name
                         ORDER BY visit_count DESC
                         LIMIT %s
@@ -329,6 +335,7 @@ class AnalyticsDB:
                             COUNT(*) as visit_count
                         FROM page_visits
                         WHERE visit_timestamp >= datetime('now', '-' || ? || ' days')
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY page_url, page_title
                         ORDER BY visit_count DESC
                     """, (days,))
@@ -344,6 +351,7 @@ class AnalyticsDB:
                             COUNT(*) as visit_count
                         FROM page_visits
                         WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY page_url, page_title
                         ORDER BY visit_count DESC
                     """, (days,))
@@ -374,6 +382,7 @@ class AnalyticsDB:
                             COUNT(DISTINCT user_email) as unique_users
                         FROM page_visits
                         WHERE visit_timestamp >= datetime('now', '-' || ? || ' days')
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY DATE(visit_timestamp)
                         ORDER BY visit_date DESC
                     """, (days,))
@@ -389,6 +398,7 @@ class AnalyticsDB:
                             COUNT(DISTINCT user_email) as unique_users
                         FROM page_visits
                         WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY DATE(visit_timestamp)
                         ORDER BY visit_date DESC
                     """, (days,))
@@ -418,6 +428,7 @@ class AnalyticsDB:
                             COUNT(*) as visit_count
                         FROM page_visits
                         WHERE visit_timestamp >= datetime('now', '-' || ? || ' days')
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY CAST(strftime('%H', visit_timestamp) AS INTEGER)
                         ORDER BY hour
                     """, (days,))
@@ -432,6 +443,7 @@ class AnalyticsDB:
                             COUNT(*) as visit_count
                         FROM page_visits
                         WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY EXTRACT(HOUR FROM visit_timestamp)
                         ORDER BY hour
                     """, (days,))
@@ -464,6 +476,7 @@ class AnalyticsDB:
                             visit_timestamp,
                             ip_address
                         FROM page_visits
+                        WHERE user_email != 'jonathan.cerda@agrovetmarket.com'
                         ORDER BY visit_timestamp DESC
                         LIMIT ?
                     """, (limit,))
@@ -481,6 +494,7 @@ class AnalyticsDB:
                             visit_timestamp,
                             ip_address
                         FROM page_visits
+                        WHERE user_email != 'jonathan.cerda@agrovetmarket.com'
                         ORDER BY visit_timestamp DESC
                         LIMIT %s
                     """, (limit,))
