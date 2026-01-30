@@ -63,35 +63,39 @@ def after_request(response):
     """Registra la visita después de procesar la petición."""
     # Solo registrar si el usuario está logueado y la petición es exitosa
     if 'username' in session and response.status_code == 200:
-        # No registrar peticiones a archivos estáticos
-        if not request.path.startswith('/static/'):
-            try:
-                # Mapeo de rutas a títulos
-                page_titles = {
-                    '/': 'Dashboard Principal',
-                    '/dashboard': 'Dashboard de Ventas',
-                    '/equipo-ventas': 'Equipo de Ventas',
-                    '/meta': 'Metas de Ventas',
-                    '/sales': 'Ventas Detalladas',
-                    '/metas-vendedor': 'Metas por Vendedor',
-                    '/dashboard-linea': 'Dashboard por Línea',
-                    '/analytics': 'Analytics y Estadísticas'
-                }
-                
-                page_title = page_titles.get(request.path, request.path)
-                
-                analytics_db.log_visit(
-                    user_email=session.get('username'),
-                    user_name=session.get('user_name'),
-                    page_url=request.path,
-                    page_title=page_title,
-                    ip_address=request.remote_addr,
-                    user_agent=request.headers.get('User-Agent'),
-                    referrer=request.referrer,
-                    method=request.method
-                )
-            except Exception as e:
-                print(f"⚠️ Error al registrar analytics: {e}")
+        # Excluir cuenta de administrador de estadísticas (para deployments)
+        excluded_users = ['jonathan.cerda@agrovetmarket.com']
+        
+        if session.get('username') not in excluded_users:
+            # No registrar peticiones a archivos estáticos
+            if not request.path.startswith('/static/'):
+                try:
+                    # Mapeo de rutas a títulos
+                    page_titles = {
+                        '/': 'Dashboard Principal',
+                        '/dashboard': 'Dashboard de Ventas',
+                        '/equipo-ventas': 'Equipo de Ventas',
+                        '/meta': 'Metas de Ventas',
+                        '/sales': 'Ventas Detalladas',
+                        '/metas-vendedor': 'Metas por Vendedor',
+                        '/dashboard-linea': 'Dashboard por Línea',
+                        '/analytics': 'Analytics y Estadísticas'
+                    }
+                    
+                    page_title = page_titles.get(request.path, request.path)
+                    
+                    analytics_db.log_visit(
+                        user_email=session.get('username'),
+                        user_name=session.get('user_name'),
+                        page_url=request.path,
+                        page_title=page_title,
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent'),
+                        referrer=request.referrer,
+                        method=request.method
+                    )
+                except Exception as e:
+                    print(f"⚠️ Error al registrar analytics: {e}")
     
     return response
 
