@@ -1225,7 +1225,8 @@ def meta():
                 # Procesar Meta Total
                 meta_value = request.form.get(f"meta_{linea['id']}", '0')
                 try:
-                    clean_value = str(meta_value).replace(',', '') if meta_value else '0'
+                    # Limpiar formato: remover puntos (separadores de miles) y convertir coma a punto decimal
+                    clean_value = str(meta_value).replace('.', '').replace(',', '.') if meta_value else '0'
                     valor = float(clean_value) if clean_value else 0.0
                     metas_data[linea['id']] = valor
                     total_meta += valor
@@ -1235,7 +1236,8 @@ def meta():
                 # Procesar Meta IPN
                 meta_ipn_value = request.form.get(f"meta_ipn_{linea['id']}", '0')
                 try:
-                    clean_value_ipn = str(meta_ipn_value).replace(',', '') if meta_ipn_value else '0'
+                    # Limpiar formato: remover puntos (separadores de miles) y convertir coma a punto decimal
+                    clean_value_ipn = str(meta_ipn_value).replace('.', '').replace(',', '.') if meta_ipn_value else '0'
                     valor_ipn = float(clean_value_ipn) if clean_value_ipn else 0.0
                     metas_ipn_data[linea['id']] = valor_ipn
                     total_meta_ipn += valor_ipn
@@ -1246,7 +1248,8 @@ def meta():
             # Procesar Meta Total ECOMMERCE
             meta_ecommerce_value = request.form.get('meta_ecommerce', '0')
             try:
-                clean_value_ecommerce = str(meta_ecommerce_value).replace(',', '') if meta_ecommerce_value else '0'
+                # Limpiar formato: remover puntos (separadores de miles) y convertir coma a punto decimal
+                clean_value_ecommerce = str(meta_ecommerce_value).replace('.', '').replace(',', '.') if meta_ecommerce_value else '0'
                 valor_ecommerce = float(clean_value_ecommerce) if clean_value_ecommerce else 0.0
                 metas_data['ecommerce'] = valor_ecommerce
                 total_meta += valor_ecommerce
@@ -1256,7 +1259,8 @@ def meta():
             # Procesar Meta IPN ECOMMERCE
             meta_ipn_ecommerce_value = request.form.get('meta_ipn_ecommerce', '0')
             try:
-                clean_value_ipn_ecommerce = str(meta_ipn_ecommerce_value).replace(',', '') if meta_ipn_ecommerce_value else '0'
+                # Limpiar formato: remover puntos (separadores de miles) y convertir coma a punto decimal
+                clean_value_ipn_ecommerce = str(meta_ipn_ecommerce_value).replace('.', '').replace(',', '.') if meta_ipn_ecommerce_value else '0'
                 valor_ipn_ecommerce = float(clean_value_ipn_ecommerce) if clean_value_ipn_ecommerce else 0.0
                 metas_ipn_data['ecommerce'] = valor_ipn_ecommerce
                 total_meta_ipn += valor_ipn_ecommerce
@@ -1508,9 +1512,24 @@ def metas_vendedor():
                 meta_valor_str = request.form.get(f'meta_{equipo_id}_{vendedor_id_str}_{mes_key}')
                 meta_ipn_valor_str = request.form.get(f'meta_ipn_{equipo_id}_{vendedor_id_str}_{mes_key}')
 
-                # Convertir a float, manejar valores vacíos como None para no guardar ceros innecesarios
-                meta = float(meta_valor_str) if meta_valor_str else None
-                meta_ipn = float(meta_ipn_valor_str) if meta_ipn_valor_str else None
+                # Convertir a float, limpiar formato (puntos y comas)
+                try:
+                    if meta_valor_str:
+                        clean_meta = str(meta_valor_str).replace('.', '').replace(',', '.')
+                        meta = float(clean_meta) if clean_meta else None
+                    else:
+                        meta = None
+                except (ValueError, TypeError):
+                    meta = None
+                
+                try:
+                    if meta_ipn_valor_str:
+                        clean_meta_ipn = str(meta_ipn_valor_str).replace('.', '').replace(',', '.')
+                        meta_ipn = float(clean_meta_ipn) if clean_meta_ipn else None
+                    else:
+                        meta_ipn = None
+                except (ValueError, TypeError):
+                    meta_ipn = None
 
                 if meta is not None or meta_ipn is not None:
                     # Solo agregar vendedores que tengan metas asignadas
