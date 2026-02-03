@@ -461,15 +461,12 @@ canvas {
     function cambiarFiltro() {
         const linea = document.getElementById('linea-selector').value;
         const mes = document.getElementById('mes-selector').value;
-        const diaElem = document.querySelector('#date-picker-trigger .dia-numero');
-        const dia_fin = diaElem ? diaElem.textContent.trim() : null;
+        // NO pasar dia_fin al cambiar filtros - dejar que el backend use el último día del mes
 
         let params = new URLSearchParams();
         params.set('linea_nombre', linea);
         params.set('mes', mes);
-        if (dia_fin) {
-            params.set('dia_fin', dia_fin);
-        }
+        // No incluir dia_fin aquí - solo se incluirá cuando el usuario use el date picker
 
         window.location.href = `{{ url_for('dashboard_linea') }}?${params.toString()}`;
     }

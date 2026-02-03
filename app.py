@@ -3,7 +3,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
 from dotenv import load_dotenv
 from odoo_manager import OdooManager
-from google_sheets_manager import GoogleSheetsManager
+from supabase_manager import SupabaseManager
 from analytics_db import AnalyticsDB
 import os
 import pandas as pd
@@ -43,10 +43,9 @@ except Exception as e:
         def get_commercial_lines_stacked_data(self, *args, **kwargs):
             return {'yAxis': [], 'series': [], 'legend': []}
     data_manager = _StubManager()
-gs_manager = GoogleSheetsManager(
-    credentials_file='credentials.json',
-    sheet_name=os.getenv('GOOGLE_SHEET_NAME')
-)
+
+# Inicializar Supabase Manager para metas de 2026
+supabase_manager = SupabaseManager()
 
 # Inicializar sistema de analytics
 analytics_db = AnalyticsDB()
@@ -373,9 +372,13 @@ def dashboard():
         # --- FIN DE LA NUEVA LÓGICA ---
 
         # Obtener metas del mes seleccionado desde la sesión
-        metas_historicas = gs_manager.read_metas_por_linea()
+        metas_historicas = supabase_manager.read_metas_por_linea()
         metas_del_mes_raw = metas_historicas.get(mes_seleccionado, {}).get('metas', {})
         metas_ipn_del_mes_raw = metas_historicas.get(mes_seleccionado, {}).get('metas_ipn', {})
+        
+        # Normalizar claves a minúsculas para coincidir con los IDs de líneas
+        metas_del_mes_raw = {k.lower(): v for k, v in metas_del_mes_raw.items()}
+        metas_ipn_del_mes_raw = {k.lower(): v for k, v in metas_ipn_del_mes_raw.items()}
         
         # Consolidar metas de GENVET con TERCEROS
         metas_del_mes = {}
@@ -513,7 +516,11 @@ def dashboard():
             all_lines[linea_id] = {'nombre': nombre_linea_venta.upper(), 'id': linea_id}
 
         # Añadir líneas desde las metas (para aquellas que no tuvieron ventas)
-        for linea_id_meta in metas_del_mes.keys():
+        # IMPORTANTE: Normalizar las claves de metas_del_mes a minúsculas para evitar duplicados
+        for linea_id_meta_raw in metas_del_mes.keys():
+            # Normalizar a minúsculas
+            linea_id_meta = linea_id_meta_raw.lower()
+            
             # Convertir genvet a terceros si existe en las metas
             if linea_id_meta == 'genvet':
                 linea_id_meta = 'terceros'
@@ -663,7 +670,7 @@ def dashboard():
         kpis_ecommerce = {'meta_total': 0, 'venta_total': 0, 'porcentaje_avance': 0}
 
         # 1. Obtener miembros y metas del equipo ECOMMERCE
-        equipos_guardados = gs_manager.read_equipos()        
+        equipos_guardados = supabase_manager.read_equipos()        
         ecommerce_vendor_ids = [str(vid) for vid in equipos_guardados.get('ecommerce', [])]
         
         if ecommerce_vendor_ids:
@@ -848,7 +855,9 @@ def dashboard_linea():
 
         # Cargar metas de vendedores para el mes y línea seleccionados
         # La estructura es metas[equipo_id][vendedor_id][mes_key]
-        metas_vendedores_historicas = gs_manager.read_metas()
+        metas_vendedores_historicas_raw = supabase_manager.read_metas()
+        # Normalizar las claves de equipo_id a minúsculas para que coincidan con linea_seleccionada_id
+        metas_vendedores_historicas = {k.lower(): v for k, v in metas_vendedores_historicas_raw.items()}
         # 1. Obtener todas las metas del equipo/línea
         metas_del_equipo = metas_vendedores_historicas.get(linea_seleccionada_id, {})
 
@@ -950,7 +959,7 @@ def dashboard_linea():
         # Combinar los vendedores oficiales del equipo con los que tuvieron ventas reales en la línea.
         # Esto asegura que mostremos a todos los miembros del equipo (incluso con 0 ventas)
         # y también a cualquier otra persona que haya vendido en esta línea sin ser miembro oficial.
-        equipos_guardados = gs_manager.read_equipos()
+        equipos_guardados = supabase_manager.read_equipos()
         miembros_oficiales_ids = {str(vid) for vid in equipos_guardados.get(linea_seleccionada_id, [])}
         vendedores_con_ventas_ids = set(ventas_por_vendedor.keys())
         
@@ -1089,7 +1098,7 @@ def dashboard_linea():
         # Replicar la misma lógica del dashboard principal para consistencia.
         
         # 1. Obtener metas del mes para incluir líneas con metas pero sin ventas.
-        metas_historicas = gs_manager.read_metas_por_linea()
+        metas_historicas = supabase_manager.read_metas_por_linea()
         metas_del_mes = metas_historicas.get(mes_seleccionado, {}).get('metas', {})
         
         # 2. Unificar líneas desde ventas y metas.
@@ -1259,15 +1268,17 @@ def meta():
             mes_obj = next((m for m in meses_año if m['key'] == mes_formulario), None)
             mes_nombre_formulario = mes_obj['nombre'] if mes_obj else ""
             
-            metas_historicas = gs_manager.read_metas_por_linea()
-            metas_historicas[mes_formulario] = {
-                'metas': metas_data,
-                'metas_ipn': metas_ipn_data,
-                'total': total_meta,
-                'total_ipn': total_meta_ipn,
-                'mes_nombre': mes_nombre_formulario
+            # IMPORTANTE: Solo guardar las metas del mes actual, no todo el historial
+            metas_solo_mes_actual = {
+                mes_formulario: {
+                    'metas': metas_data,
+                    'metas_ipn': metas_ipn_data,
+                    'total': total_meta,
+                    'total_ipn': total_meta_ipn,
+                    'mes_nombre': mes_nombre_formulario
+                }
             }
-            gs_manager.write_metas_por_linea(metas_historicas)
+            supabase_manager.write_metas_por_linea(metas_solo_mes_actual)
             
             flash(f'Metas guardadas exitosamente para {mes_nombre_formulario}. Total: S/ {total_meta:,.0f}', 'success')
             
@@ -1275,11 +1286,32 @@ def meta():
             mes_seleccionado = mes_formulario
         
         # Obtener todas las metas históricas
-        metas_historicas = gs_manager.read_metas_por_linea()
+        metas_historicas = supabase_manager.read_metas_por_linea()
         
         # Obtener metas y total del mes seleccionado
-        metas_actuales = metas_historicas.get(mes_seleccionado, {}).get('metas', {})
-        metas_ipn_actuales = metas_historicas.get(mes_seleccionado, {}).get('metas_ipn', {})
+        metas_mes_seleccionado = metas_historicas.get(mes_seleccionado, {})
+        metas_actuales_raw = metas_mes_seleccionado.get('metas', {})
+        metas_ipn_actuales_raw = metas_mes_seleccionado.get('metas_ipn', {})
+        
+        # Normalizar claves a minúsculas para coincidir con lineas_comerciales_estaticas
+        metas_actuales = {k.lower(): v for k, v in metas_actuales_raw.items()}
+        metas_ipn_actuales = {k.lower(): v for k, v in metas_ipn_actuales_raw.items()}
+        
+        print(f"🔍 DEBUG /meta - Mes seleccionado: {mes_seleccionado}")
+        print(f"🔍 DEBUG /meta - Líneas comerciales estáticas: {len(lineas_comerciales_estaticas)}")
+        print(f"🔍 DEBUG /meta - Metas actuales ANTES: {metas_actuales}")
+        
+        # IMPORTANTE: Asegurar que TODAS las líneas comerciales tengan un valor (0 si no existe)
+        # Esto permite que se muestren en el formulario aunque no tengan datos previos
+        lineas_ids = [linea['id'] for linea in lineas_comerciales_estaticas] + ['ecommerce']
+        for linea_id in lineas_ids:
+            if linea_id not in metas_actuales:
+                metas_actuales[linea_id] = 0.0
+            if linea_id not in metas_ipn_actuales:
+                metas_ipn_actuales[linea_id] = 0.0
+        
+        print(f"🔍 DEBUG /meta - Metas actuales DESPUÉS: {metas_actuales}")
+        
         total_actual = sum(metas_actuales.values()) if metas_actuales else 0
         total_ipn_actual = sum(metas_ipn_actuales.values()) if metas_ipn_actuales else 0
         
@@ -1300,6 +1332,9 @@ def meta():
                              is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
+        print(f"❌ ERROR en /meta: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f'Error al procesar metas: {str(e)}', 'danger')
         return render_template('meta.html',
                              lineas_comerciales=[],
@@ -1443,7 +1478,7 @@ def metas_vendedor():
         # --- 1. GUARDAR ASIGNACIONES DE EQUIPOS ---
         equipo_actualizado_id = request.form.get('guardar_equipo') # Para el mensaje flash
         todos_los_vendedores_para_guardar = data_manager.get_all_sellers()
-        equipos_guardados = gs_manager.read_equipos()
+        equipos_guardados = supabase_manager.read_equipos()
 
         for equipo in equipos_definidos:
             campo_vendedores = f'vendedores_{equipo["id"]}'
@@ -1454,46 +1489,39 @@ def metas_vendedor():
                     equipos_guardados[equipo['id']] = vendedores_ids
                 else:
                     equipos_guardados[equipo['id']] = []
-        gs_manager.write_equipos(equipos_guardados, todos_los_vendedores_para_guardar)
+        supabase_manager.write_equipos(equipos_guardados, todos_los_vendedores_para_guardar)
 
-        # --- 2. GUARDAR TODAS LAS METAS (ESTRUCTURA PIVOT) ---
-        metas_vendedores_historicas = gs_manager.read_metas()
+        # --- 2. GUARDAR SOLO LAS METAS DEL MES SELECCIONADO ---
+        # Crear estructura nueva solo con el mes actual, no cargar el histórico completo
+        mes_key = mes_seleccionado
+        metas_solo_mes_actual = {}
         
         for equipo in equipos_definidos:
             equipo_id = equipo['id']
-            if equipo_id not in metas_vendedores_historicas:
-                metas_vendedores_historicas[equipo_id] = {}
+            metas_solo_mes_actual[equipo_id] = {}
 
             vendedores_ids_en_equipo = equipos_guardados.get(equipo_id, [])
             for vendedor_id in vendedores_ids_en_equipo:
                 vendedor_id_str = str(vendedor_id)
-                if vendedor_id_str not in metas_vendedores_historicas[equipo_id]:
-                    metas_vendedores_historicas[equipo_id][vendedor_id_str] = {}
 
-                for mes in meses_disponibles:
-                    mes_key = mes['key']
-                    # No es necesario crear la clave del mes aquí, se crea si hay datos
+                # Solo procesar el mes actual seleccionado
+                meta_valor_str = request.form.get(f'meta_{equipo_id}_{vendedor_id_str}_{mes_key}')
+                meta_ipn_valor_str = request.form.get(f'meta_ipn_{equipo_id}_{vendedor_id_str}_{mes_key}')
 
-                    meta_valor_str = request.form.get(f'meta_{equipo_id}_{vendedor_id_str}_{mes_key}')
-                    meta_ipn_valor_str = request.form.get(f'meta_ipn_{equipo_id}_{vendedor_id_str}_{mes_key}')
+                # Convertir a float, manejar valores vacíos como None para no guardar ceros innecesarios
+                meta = float(meta_valor_str) if meta_valor_str else None
+                meta_ipn = float(meta_ipn_valor_str) if meta_ipn_valor_str else None
 
-                    # Convertir a float, manejar valores vacíos como None para no guardar ceros innecesarios
-                    meta = float(meta_valor_str) if meta_valor_str else None
-                    meta_ipn = float(meta_ipn_valor_str) if meta_ipn_valor_str else None
-
-                    if meta is not None or meta_ipn is not None:
-                        # Si la clave del mes no existe, créala
-                        if mes_key not in metas_vendedores_historicas[equipo_id][vendedor_id_str]:
-                             metas_vendedores_historicas[equipo_id][vendedor_id_str][mes_key] = {}
-                        metas_vendedores_historicas[equipo_id][vendedor_id_str][mes_key] = {
+                if meta is not None or meta_ipn is not None:
+                    # Solo agregar vendedores que tengan metas asignadas
+                    metas_solo_mes_actual[equipo_id][vendedor_id_str] = {
+                        mes_key: {
                             'meta': meta or 0.0,
                             'meta_ipn': meta_ipn or 0.0
                         }
-                    # Si ambos son None y la clave existe, se elimina para limpiar el JSON
-                    elif mes_key in metas_vendedores_historicas[equipo_id][vendedor_id_str]:
-                        del metas_vendedores_historicas[equipo_id][vendedor_id_str][mes_key]
+                    }
 
-        gs_manager.write_metas(metas_vendedores_historicas)
+        supabase_manager.write_metas(metas_solo_mes_actual)
         
         if equipo_actualizado_id:
             flash(f'Miembros del equipo actualizados. Ahora puedes asignar sus metas.', 'info')
@@ -1506,7 +1534,7 @@ def metas_vendedor():
     # GET o después de POST
     todos_los_vendedores = data_manager.get_all_sellers()
     vendedores_por_id = {v['id']: v for v in todos_los_vendedores}
-    equipos_guardados = gs_manager.read_equipos()
+    equipos_guardados = supabase_manager.read_equipos()
 
     # Construir la estructura de datos para la plantilla
     equipos_con_vendedores = []
@@ -1523,7 +1551,7 @@ def metas_vendedor():
         })
 
     # Para la vista, pasamos todas las metas cargadas
-    metas_guardadas = gs_manager.read_metas()
+    metas_guardadas = supabase_manager.read_metas()
 
     return render_template('metas_vendedor.html',
                            meses_disponibles=meses_disponibles,

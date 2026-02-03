@@ -27,8 +27,8 @@
             <div class="mes-card {{ 'mes-activo' if mes.key == mes_seleccionado else '' }} {{ 'mes-actual' if mes.es_actual else '' }}" 
                  onclick="seleccionarMes('{{ mes.key }}')">
                 <span class="mes-nombre">{{ mes.nombre }}</span>
-                {% if metas_historicas.get(mes.key) %}
-                <span class="mes-total">S/ {{ "{:,.0f}".format(metas_historicas.get(mes.key).total) }}</span>
+                {% if metas_historicas.get(mes.key) and metas_historicas.get(mes.key).get('total') %}
+                <span class="mes-total">S/ {{ "{:,.0f}".format(metas_historicas.get(mes.key).get('total', 0)) }}</span>
                 {% else %}
                 <span class="mes-total sin-meta">Sin meta</span>
                 {% endif %}
@@ -64,7 +64,9 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <!-- DEBUG: Total líneas = {{ lineas_comerciales|length }} -->
                     {% for linea in lineas_comerciales %}
+                    <!-- DEBUG: Renderizando línea {{ linea.id }} - {{ linea.nombre }} -->
                     <tr>
                         <td class="linea-nombre">{{ linea.nombre }}</td>
                         <td class="meta-input-cell">
