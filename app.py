@@ -1804,7 +1804,7 @@ def analytics():
     # Contar total de usuarios que han accedido alguna vez (desde analytics DB)
     # Esto es más preciso que contar allowed_users.json
     total_allowed_users = 0
-    if analytics_db and analytics_db.is_enabled():
+    if analytics_db and analytics_db.enabled
         try:
             # Contar usuarios únicos de todos los tiempos
             result = analytics_db.execute_query(
