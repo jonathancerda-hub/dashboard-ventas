@@ -1801,20 +1801,8 @@ def analytics():
     except ValueError:
         days = 30
     
-    # Contar total de usuarios que han accedido alguna vez (desde analytics DB)
-    # Esto es más preciso que contar allowed_users.json
-    total_allowed_users = 0
-    if analytics_db and analytics_db.enabled:
-        try:
-            # Contar usuarios únicos de todos los tiempos
-            result = analytics_db.execute_query(
-                "SELECT COUNT(DISTINCT username) as total FROM page_visits WHERE username IS NOT NULL"
-            )
-            if result:
-                total_allowed_users = result[0]['total']
-        except Exception as e:
-            print(f"Error al contar usuarios totales: {e}")
-            total_allowed_users = 0
+    # Total de usuarios permitidos (cantidad fija)
+    total_allowed_users = 43
     
     # Obtener estadísticas y convertir RealDictRow a diccionarios normales
     stats = {
