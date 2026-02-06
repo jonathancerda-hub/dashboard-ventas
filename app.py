@@ -318,7 +318,7 @@ def dashboard():
     
     try:
         # --- Lógica de Permisos de Administrador ---
-        admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
+        admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com", "juana.lobaton@agrovetmarket.com"]
         is_admin = session.get('username') in admin_users
 
         # Obtener año seleccionado (parámetro o año actual por defecto)
