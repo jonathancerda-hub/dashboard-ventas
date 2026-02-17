@@ -187,9 +187,9 @@
                 <thead>
                     <tr>
                         <th style="width: 40%;">Línea Comercial</th>
+                        <th style="width: 10%;">Meta</th>
                         <th style="width: 20%;">Venta</th>
                         <th style="width: 20%;">% Total Vta.</th>
-                        <th style="width: 10%;">Meta</th>
                         <th style="width: 10%;">% Avance</th>
                     </tr>
                 </thead>
@@ -197,17 +197,17 @@
                     {% for linea in datos_ecommerce %}
                     <tr>
                         <td>{{ linea.nombre }}</td>
+                        <td>-</td>
                         <td>{{ "{:,.0f}".format(linea.venta) }}</td>
                         <td class="porcentaje">{{ "%.1f%%"|format(linea.porcentaje_sobre_total) }}</td>
-                        <td>-</td>
                         <td>-</td>
                     </tr>
                     {% endfor %}
                     <tr class="fila-total">
                         <td><strong>Total Equipo</strong></td>
+                        <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
                         <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.venta_total) }}</strong></td>
                         <td class="porcentaje"><strong>100.0%</strong></td>
-                        <td><strong>{{ "{:,.0f}".format(kpis_ecommerce.meta_total) }}</strong></td>
                         <td class="porcentaje"><strong>{{ "{:.1f}%".format(kpis_ecommerce.porcentaje_avance) }}</strong></td>
                     </tr>
                 </tbody>
