@@ -53,6 +53,7 @@ Usuarios autorizados para exportar datos a Excel.
 - AMAHOdoo@agrovetmarket.com
 - miguel.hernandez@agrovetmarket.com
 - juana.lobaton@agrovetmarket.com
+- jimena.delrisco@agrovetmarket.com
 
 #### Exportación de Ventas Farmacéuticas:
 - jonathan.cerda@agrovetmarket.com
@@ -61,6 +62,7 @@ Usuarios autorizados para exportar datos a Excel.
 - AMAHOdoo@agrovetmarket.com
 - miguel.hernandez@agrovetmarket.com
 - juana.lobaton@agrovetmarket.com
+- jimena.delrisco@agrovetmarket.com
 
 **Permisos adicionales:**
 - ✅ Exportar Detalle de Dashboard (`/export/dashboard/details`)
@@ -116,6 +118,7 @@ Usuarios con acceso completo a todas las funcionalidades del sistema.
 | Ena Fernández | ena.fernandez@agrovetmarket.com | Usuario Básico + Analytics |
 | Miguel Hernández | miguel.hernandez@agrovetmarket.com | Usuario Básico + Exportación |
 | AMAHOdoo | AMAHOdoo@agrovetmarket.com | Usuario Básico + Exportación |
+| Jimena del Risco | jimena.delrisco@agrovetmarket.com | Usuario Básico + Exportación |
 
 ---
 
