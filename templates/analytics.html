@@ -133,6 +133,18 @@
         color: white;
     }
 
+    .badge-team {
+        background-color: #00A09D;
+        color: white;
+        font-size: 11px;
+        padding: 3px 10px;
+    }
+
+    .badge-info {
+        background-color: #17a2b8;
+        color: white;
+    }
+
     .btn-back {
         background-color: var(--odoo-primary);
         color: white;
@@ -246,6 +258,7 @@
                         <th>#</th>
                         <th>Usuario</th>
                         <th>Email</th>
+                        <th>Equipo</th>
                         <th>Visitas</th>
                         <th>Última Visita</th>
                     </tr>
@@ -256,6 +269,13 @@
                         <td>{{ loop.index }}</td>
                         <td>{{ user.user_name or 'N/A' }}</td>
                         <td>{{ user.user_email }}</td>
+                        <td>
+                            {% if user.equipo %}
+                                <span class="badge badge-team">{{ user.equipo }}</span>
+                            {% else %}
+                                <span style="color: #999; font-style: italic;">-</span>
+                            {% endif %}
+                        </td>
                         <td><span class="badge badge-primary">{{ user.visit_count }}</span></td>
                         <td>{{ user.last_visit.strftime('%d/%m/%Y %H:%M') if user.last_visit else 'N/A' }}</td>
                     </tr>
@@ -265,6 +285,45 @@
         </div>
         {% else %}
         <div class="no-data">No hay datos de usuarios disponibles</div>
+        {% endif %}
+    </div>
+
+    <!-- Tabla de Equipos Más Activos -->
+    <div class="chart-card">
+        <h2><i class="bi bi-trophy"></i> Equipos de Venta Más Activos</h2>
+        {% if stats.visits_by_team %}
+        <div class="table-responsive">
+            <table class="analytics-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Equipo de Venta</th>
+                        <th>Usuarios Únicos</th>
+                        <th>Total Visitas</th>
+                        <th>Promedio Visitas/Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for team in stats.visits_by_team %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            {% if team.equipo == 'SIN EQUIPO' %}
+                                <span style="color: #999; font-style: italic;">{{ team.equipo }}</span>
+                            {% else %}
+                                <strong><i class="bi bi-people-fill"></i> {{ team.equipo }}</strong>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge badge-info">{{ team.usuarios_unicos }}</span></td>
+                        <td><span class="badge badge-primary">{{ team.total_visitas }}</span></td>
+                        <td>{{ (team.total_visitas / team.usuarios_unicos) | round(1) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-data">No hay datos de equipos disponibles</div>
         {% endif %}
     </div>
 

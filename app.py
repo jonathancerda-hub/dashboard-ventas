@@ -1804,6 +1804,19 @@ def analytics():
     # Total de usuarios permitidos (cantidad fija)
     total_allowed_users = 43
     
+    # Obtener equipos de ventas desde Supabase
+    equipos_guardados = supabase_manager.read_equipos()
+    todos_los_vendedores = data_manager.get_all_sellers()
+    
+    # Crear mapas de email a vendedor_id y vendedor_id a equipo
+    email_to_vendedor = {v['name'].lower(): v['id'] for v in todos_los_vendedores if v.get('name')}
+    vendedor_to_equipo = {}
+    
+    # Asignar cada vendedor a su equipo
+    for equipo_id, vendedores_ids in equipos_guardados.items():
+        for vendedor_id in vendedores_ids:
+            vendedor_to_equipo[vendedor_id] = equipo_id.upper()
+    
     # Obtener estadísticas y convertir RealDictRow a diccionarios normales
     stats = {
         'total_visits': analytics_db.get_total_visits(days),
@@ -1815,6 +1828,50 @@ def analytics():
         'visits_by_hour': [dict(row) for row in analytics_db.get_visits_by_hour(min(days, 7))],
         'recent_visits': [dict(row) for row in analytics_db.get_recent_visits(50)]
     }
+    
+    # Asignar equipo a cada usuario basado en su email
+    for visit in stats['visits_by_user']:
+        user_email = visit.get('user_email', '')
+        user_name = visit.get('user_name', '')
+        
+        # Intentar encontrar el vendedor por nombre en el email
+        vendedor_id = None
+        for email_part in [user_email.lower(), user_name.lower()]:
+            if email_part in email_to_vendedor:
+                vendedor_id = email_to_vendedor[email_part]
+                break
+        
+        # Asignar equipo si se encontró el vendedor
+        if vendedor_id and vendedor_id in vendedor_to_equipo:
+            visit['equipo'] = vendedor_to_equipo[vendedor_id]
+        else:
+            visit['equipo'] = ''  # Sin equipo
+    
+    # Calcular estadísticas por equipo
+    equipos_stats = {}
+    for visit in stats['visits_by_user']:
+        equipo = visit.get('equipo', 'SIN EQUIPO')
+        if equipo == '':
+            equipo = 'SIN EQUIPO'
+        
+        if equipo not in equipos_stats:
+            equipos_stats[equipo] = {
+                'equipo': equipo,
+                'total_visitas': 0,
+                'usuarios_unicos': 0,
+                'usuarios': []
+            }
+        
+        equipos_stats[equipo]['total_visitas'] += visit.get('visit_count', 0)
+        equipos_stats[equipo]['usuarios_unicos'] += 1
+        equipos_stats[equipo]['usuarios'].append(visit.get('user_name', 'N/A'))
+    
+    # Convertir a lista y ordenar por visitas
+    stats['visits_by_team'] = sorted(
+        equipos_stats.values(),
+        key=lambda x: x['total_visitas'],
+        reverse=True
+    )
     
     # Convertir y formatear fechas para compatibilidad con el template
     # IMPORTANTE: Convertir timestamps de UTC a hora de Perú
