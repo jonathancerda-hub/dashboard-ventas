@@ -1815,7 +1815,11 @@ def analytics():
     # Asignar cada vendedor a su equipo
     for equipo_id, vendedores_ids in equipos_guardados.items():
         for vendedor_id in vendedores_ids:
-            vendedor_to_equipo[vendedor_id] = equipo_id.upper()
+            # Convertir "OTROS" a "AGROVET" ya que son el mismo equipo
+            equipo_nombre = equipo_id.upper()
+            if equipo_nombre == 'OTROS':
+                equipo_nombre = 'AGROVET'
+            vendedor_to_equipo[vendedor_id] = equipo_nombre
     
     # Obtener estadísticas y convertir RealDictRow a diccionarios normales
     stats = {
@@ -1853,6 +1857,9 @@ def analytics():
         equipo = visit.get('equipo', 'SIN EQUIPO')
         if equipo == '':
             equipo = 'SIN EQUIPO'
+        # Convertir "OTROS" a "AGROVET" si aparece
+        elif equipo == 'OTROS':
+            equipo = 'AGROVET'
         
         if equipo not in equipos_stats:
             equipos_stats[equipo] = {
