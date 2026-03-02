@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from odoo_manager import OdooManager
 from supabase_manager import SupabaseManager
 from analytics_db import AnalyticsDB
+from authlib.integrations.flask_client import OAuth
 import os
 import pandas as pd
 import json
@@ -18,6 +19,18 @@ import pytz
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+
+# Configuración OAuth2 Google
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 # Timezone de Perú
 PERU_TZ = pytz.timezone('America/Lima')
@@ -170,45 +183,75 @@ def limpiar_nombre_atrevia(nombre_producto):
     
     return nombre_limpio
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login')
 def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user_data = data_manager.authenticate_user(username, password)
+    """Mostrar página de login con botón de Google"""
+    return render_template('login.html')
+
+@app.route('/google-oauth')
+def google_oauth():
+    """Iniciar el proceso de autenticación con Google OAuth2"""
+    redirect_uri = url_for('authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/loading')
+def loading():
+    """Mostrar página de carga mientras se cargan los datos del dashboard"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return render_template('loading.html')
+
+@app.route('/authorize')
+def authorize():
+    """Callback de Google OAuth2 - Procesar la respuesta de autenticación"""
+    try:
+        # Obtener el token de acceso de Google
+        token = google.authorize_access_token()
         
-        if user_data:
-            # --- Verificación de Lista Blanca ---
+        # Obtener información del usuario desde Google
+        user_info = token.get('userinfo')
+        
+        if user_info:
+            email = user_info.get('email')
+            name = user_info.get('name')
+            
+            # Verificar si el usuario está en la lista blanca
             try:
                 # Intentar leer desde variable de entorno primero
                 allowed_emails_env = os.getenv('ALLOWED_USERS')
-                if allowed_emails_env:
+                if allowed_emails_env and allowed_emails_env.strip():
                     # Si existe la variable de entorno, parsear la lista separada por comas
-                    allowed_emails = [email.strip() for email in allowed_emails_env.split(',')]
+                    allowed_emails = [e.strip() for e in allowed_emails_env.split(',') if e.strip()]
                 else:
                     # Fallback: leer desde el archivo JSON local
                     with open('allowed_users.json', 'r') as f:
                         allowed_emails = json.load(f).get('allowed_emails', [])
                 
-                user_login = user_data.get('login')
-                if user_login and user_login in allowed_emails:
+                if email and email in allowed_emails:
                     # Usuario autenticado y autorizado
-                    session['username'] = user_login
-                    session['user_name'] = user_data.get('name', username)
+                    session['username'] = email
+                    session['user_name'] = name
+                    session['user_info'] = user_info
                     flash('¡Inicio de sesión exitoso!', 'success')
-                    return redirect(url_for('dashboard'))
+                    return redirect(url_for('loading'))
                 else:
                     # Usuario autenticado pero no autorizado
-                    flash('No tienes permiso para acceder a esta aplicación.', 'warning')
+                    flash(f'El correo {email} no tiene permiso para acceder a esta aplicación.', 'warning')
+                    return redirect(url_for('login'))
+                    
             except FileNotFoundError:
                 flash('Error de configuración: El archivo de usuarios permitidos no se encuentra.', 'danger')
+                return redirect(url_for('login'))
             except Exception as e:
                 flash(f'Error al verificar permisos: {str(e)}', 'danger')
+                return redirect(url_for('login'))
         else:
-            flash('Usuario o contraseña incorrectos.', 'danger')
+            flash('No se pudo obtener información del usuario de Google.', 'danger')
+            return redirect(url_for('login'))
             
-
-    return render_template('login.html')
+    except Exception as e:
+        flash(f'Error en la autenticación: {str(e)}', 'danger')
+        return redirect(url_for('login'))
 
 @app.route('/desing-login')
 def desing_login():
