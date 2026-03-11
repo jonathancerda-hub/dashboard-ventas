@@ -147,22 +147,88 @@ def normalizar_linea_comercial(nombre_linea):
     
     return nombre_linea.upper().strip()
 
-def limpiar_nombre_atrevia(nombre_producto):
+def limpiar_nombre_producto(nombre_producto):
     """
-    Limpia los nombres de productos ATREVIA eliminando indicadores de tamaño/presentación y marcadores (N).
+    Limpia los nombres de productos para agruparlos en el gráfico Top 7.
     
-    Ejemplos:
-    - ATREVIA ONE MEDIUM → ATREVIA ONE
-    - ATREVIA XR LARGE → ATREVIA XR  
-    - ATREVIA 360° MEDIUM → ATREVIA 360°
-    - ATREVIA TRIO CATS SPOT ON MEDIUM → ATREVIA TRIO CATS
-    - ATREVIA ONE (N) → ATREVIA ONE
-    - ATREVIA XR MEDIUM (N) → ATREVIA XR
+    Agrupaciones de productos:
+    - BIOCAN → "BIOCAN"
+    - ATREVIA VERSA → "ATREVIA VERSA"
+    - SURALAN (sin QUATTRO) → "SURALAN"
+    - SURALAN QUATTRO → "SURALAN QUATTRO"
+    - EARTHBORN HOLISTIC → "EARTHBORN HOLISTIC"
+    - FORMULA NATURAL → "FORMULA NATURAL"
+    - GO NATIVE (sin ESSENTIALS) → "GO NATIVE"
+    - GO NATIVE ESSENTIALS → "GO NATIVE ESSENTIALS"
+    - NUTRIBITES → "NUTRIBITES"
+    - PRO PAC → "PRO PAC"
+    - SPORTMIX → "SPORTMIX"
+    - PET DELICIA → "PET DELICIA"
+    - ATREVIA (otros) → Agrupa por sub-producto (ONE, XR, etc.)
     """
-    if not nombre_producto or 'ATREVIA' not in nombre_producto.upper():
+    if not nombre_producto:
         return nombre_producto
     
-    # Lista de palabras que indican tamaño/presentación a eliminar
+    import re
+    nombre_upper = nombre_producto.upper()
+    
+    # === AGRUPACIONES COMPLETAS (todas las variantes en un solo grupo) ===
+    
+    # BIOCAN: Todas las variantes
+    if 'BIOCAN' in nombre_upper:
+        return 'BIOCAN'
+    
+    # GO NATIVE ESSENTIALS: Debe ir ANTES de GO NATIVE para detectarlo primero
+    if 'GO NATIVE ESSENTIALS' in nombre_upper or 'GO NATIVE ESSENTIAL' in nombre_upper:
+        return 'GO NATIVE ESSENTIALS'
+    
+    # GO NATIVE: Sin ESSENTIALS
+    if 'GO NATIVE' in nombre_upper:
+        return 'GO NATIVE'
+    
+    # EARTHBORN HOLISTIC
+    if 'EARTHBORN' in nombre_upper and 'HOLISTIC' in nombre_upper:
+        return 'EARTHBORN HOLISTIC'
+    
+    # FORMULA NATURAL
+    if 'FORMULA NATURAL' in nombre_upper:
+        return 'FORMULA NATURAL'
+    
+    # NUTRIBITES
+    if 'NUTRIBITES' in nombre_upper or 'NUTRIBITE' in nombre_upper:
+        return 'NUTRIBITES'
+    
+    # PRO PAC
+    if 'PRO PAC' in nombre_upper:
+        return 'PRO PAC'
+    
+    # SPORTMIX
+    if 'SPORTMIX' in nombre_upper:
+        return 'SPORTMIX'
+    
+    # PET DELICIA
+    if 'PET DELICIA' in nombre_upper or ('CACAROLINHA' in nombre_upper or 'JARDINEIRA' in nombre_upper or 
+        'MARAVILHA' in nombre_upper or 'PICADINHO' in nombre_upper or 
+        'RISOTINHO' in nombre_upper or 'PANELINHA' in nombre_upper):
+        return 'PET DELICIA'
+    
+    # SURALAN QUATTRO: Debe ir ANTES de SURALAN para detectarlo primero
+    if 'SURALAN' in nombre_upper and 'QUATTRO' in nombre_upper:
+        return 'SURALAN QUATTRO'
+    
+    # SURALAN: Sin QUATTRO
+    if 'SURALAN' in nombre_upper:
+        return 'SURALAN'
+    
+    # ATREVIA VERSA: Todas las presentaciones
+    if 'ATREVIA VERSA' in nombre_upper or 'ATREVIA' in nombre_upper and 'VERSA' in nombre_upper:
+        return 'ATREVIA VERSA'
+    
+    # === ATREVIA (otros): Agrupación por sub-producto ===
+    if 'ATREVIA' not in nombre_upper:
+        return nombre_producto
+    
+    # Lista de palabras que indican tamaño/presentación a eliminar para ATREVIA
     tamanos_presentaciones = [
         'MEDIUM', 'LARGE', 'SMALL', 'MINI', 'EXTRA LARGE', 'XL', 'L', 'M', 'S', 
         'SPOT ON MEDIUM', 'SPOT ON LARGE', 'SPOT ON SMALL', 'SPOT ON MINI',
@@ -172,22 +238,22 @@ def limpiar_nombre_atrevia(nombre_producto):
     
     nombre_limpio = nombre_producto.strip()
     
-    # Procesar solo si contiene ATREVIA
-    if 'ATREVIA' in nombre_limpio.upper():
-        # Paso 1: Eliminar (N) al final si existe
-        import re
-        nombre_limpio = re.sub(r'\s*\(N\)\s*$', '', nombre_limpio, flags=re.IGNORECASE).strip()
-        
-        # Paso 2: Ordenar por longitud descendente para procesar primero las frases más largas
-        tamanos_ordenados = sorted(tamanos_presentaciones, key=len, reverse=True)
-        
-        for tamano in tamanos_ordenados:
-            # Buscar y eliminar el tamaño/presentación al final del nombre
-            if nombre_limpio.upper().endswith(' ' + tamano):
-                nombre_limpio = nombre_limpio[:-(len(tamano) + 1)].strip()
-                break
+    # Paso 1: Eliminar (N) al final si existe
+    nombre_limpio = re.sub(r'\s*\(N\)\s*$', '', nombre_limpio, flags=re.IGNORECASE).strip()
+    
+    # Paso 2: Ordenar por longitud descendente para procesar primero las frases más largas
+    tamanos_ordenados = sorted(tamanos_presentaciones, key=len, reverse=True)
+    
+    for tamano in tamanos_ordenados:
+        # Buscar y eliminar el tamaño/presentación al final del nombre
+        if nombre_limpio.upper().endswith(' ' + tamano):
+            nombre_limpio = nombre_limpio[:-(len(tamano) + 1)].strip()
+            break
     
     return nombre_limpio
+
+# Mantener alias para compatibilidad con código existente
+limpiar_nombre_atrevia = limpiar_nombre_producto
 
 @app.route('/login')
 def login():
