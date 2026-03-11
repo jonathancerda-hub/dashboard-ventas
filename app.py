@@ -602,9 +602,9 @@ def dashboard():
                     if nombre_linea_actual:
                         ventas_ipn_por_linea[nombre_linea_actual] = ventas_ipn_por_linea.get(nombre_linea_actual, 0) + balance_float
                 
-                # Agrupar por producto para Top 7
+                # Agrupar por producto para Top 7 (excluir GENVET, MARCA BLANCA y TERCEROS)
                 producto_nombre = sale.get('name', '').strip()
-                if producto_nombre:
+                if producto_nombre and nombre_linea_actual not in ['GENVET', 'MARCA BLANCA', 'TERCEROS']:
                     # Limpiar nombres de ATREVIA eliminando indicadores de tamaño/presentación
                     producto_nombre_limpio = limpiar_nombre_atrevia(producto_nombre)
                     ventas_por_producto[producto_nombre_limpio] = ventas_por_producto.get(producto_nombre_limpio, 0) + balance_float
