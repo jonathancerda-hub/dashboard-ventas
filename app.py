@@ -2,9 +2,9 @@
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
 from dotenv import load_dotenv
-from odoo_manager import OdooManager
-from supabase_manager import SupabaseManager
-from analytics_db import AnalyticsDB
+from src.odoo_manager import OdooManager
+from src.supabase_manager import SupabaseManager
+from src.analytics_db import AnalyticsDB
 from authlib.integrations.flask_client import OAuth
 import os
 import pandas as pd
@@ -149,13 +149,15 @@ def normalizar_linea_comercial(nombre_linea):
 
 def limpiar_nombre_atrevia(nombre_producto):
     """
-    Limpia los nombres de productos ATREVIA eliminando indicadores de tamaño/presentación.
+    Limpia los nombres de productos ATREVIA eliminando indicadores de tamaño/presentación y marcadores (N).
     
     Ejemplos:
     - ATREVIA ONE MEDIUM → ATREVIA ONE
     - ATREVIA XR LARGE → ATREVIA XR  
     - ATREVIA 360° MEDIUM → ATREVIA 360°
     - ATREVIA TRIO CATS SPOT ON MEDIUM → ATREVIA TRIO CATS
+    - ATREVIA ONE (N) → ATREVIA ONE
+    - ATREVIA XR MEDIUM (N) → ATREVIA XR
     """
     if not nombre_producto or 'ATREVIA' not in nombre_producto.upper():
         return nombre_producto
@@ -172,7 +174,11 @@ def limpiar_nombre_atrevia(nombre_producto):
     
     # Procesar solo si contiene ATREVIA
     if 'ATREVIA' in nombre_limpio.upper():
-        # Ordenar por longitud descendente para procesar primero las frases más largas
+        # Paso 1: Eliminar (N) al final si existe
+        import re
+        nombre_limpio = re.sub(r'\s*\(N\)\s*$', '', nombre_limpio, flags=re.IGNORECASE).strip()
+        
+        # Paso 2: Ordenar por longitud descendente para procesar primero las frases más largas
         tamanos_ordenados = sorted(tamanos_presentaciones, key=len, reverse=True)
         
         for tamano in tamanos_ordenados:

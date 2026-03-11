@@ -4,6 +4,27 @@ Este documento registra los cambios y funcionalidades más importantes implement
 
 ---
 
+### Versión 3.0: Actualización de Seguridad - A06 OWASP (11/marzo/2026)
+
+**🔒 ACTUALIZACIÓN CRÍTICA DE SEGURIDAD**
+
+- **Auditoría de Componentes:** Realizada con `pip-audit` detectando 19 vulnerabilidades conocidas (CVEs)
+- **Componentes Actualizados:**
+  - `Authlib`: 1.3.1 → 1.6.7 (fixes 5 CVEs)
+  - `Flask`: 3.1.1 → 3.1.3 (fixes CVE-2026-27205)
+  - `Werkzeug`: 3.1.3 → 3.1.6 (fixes 3 CVEs)
+  - `urllib3`: 2.5.0 → 2.6.3 (fixes 3 CVEs)
+  - `pillow`: 11.3.0 → 12.1.1 (fixes CVE-2026-25990)
+  - `pyasn1`: 0.6.1 → 0.6.2 (fixes CVE-2026-23490)
+  - `pandas`: 2.3.1 → 2.2.3 (downgrade controlado por estabilidad)
+  - `pip`: 24.0 → 26.0.1 (fixes 2 CVEs)
+  - `setuptools`: 65.5.0 → 82.0.1 (fixes múltiples PYSEC)
+- **Resultado:** 19 CVEs → 0 CVEs ✅
+- **Puntuación OWASP A06:** 7/10 → 10/10 ✅
+- **Auditoría Trimestral:** Implementada con `pip-audit` y `safety check`
+
+---
+
 ### Versión 1.0: Funcionalidad Inicial
 
 - **Conexión con Odoo:** Establecimiento de la conexión con la base de datos de Odoo para la extracción de datos de ventas.

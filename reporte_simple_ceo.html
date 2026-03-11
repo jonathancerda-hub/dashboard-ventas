@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Ventas 2025 - CEO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .reporte {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 700px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #1e3c72;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 50px;
+        }
+        
+        .kpis {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .kpi {
+            padding: 30px;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        
+        .kpi-label {
+            font-size: 0.9em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .kpi-value {
+            font-size: 2.8em;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .kpi-unit {
+            font-size: 0.5em;
+            color: #999;
+            margin-left: 8px;
+        }
+        
+        .tabla-lineas {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tabla-lineas thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .tabla-lineas th {
+            padding: 18px 20px;
+            text-align: left;
+            font-size: 0.9em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .tabla-lineas th.num {
+            text-align: right;
+        }
+        
+        .tabla-lineas td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #eee;
+            font-size: 1em;
+            line-height: 1.6;
+        }
+        
+        .tabla-lineas td.num {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .tabla-lineas tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .tabla-lineas tbody tr:last-child {
+            font-weight: bold;
+            background: #f0f4ff;
+        }
+        
+        .tabla-lineas tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .fecha {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 30px;
+        }
+        
+        .footer {
+            color: #999;
+            font-size: 0.85em;
+            border-top: 1px solid #eee;
+            padding-top: 30px;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            .reporte {
+                box-shadow: none;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .reporte {
+                padding: 40px 20px;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+            .kpis {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .kpi-value {
+                font-size: 2em;
+            }
+            
+            .tabla-lineas {
+                font-size: 0.85em;
+            }
+            
+            .tabla-lineas th,
+            .tabla-lineas td {
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="reporte">
+        <h1>📊 Reporte de Ventas 2025</h1>
+        <p class="subtitle">Acumulado de TODO el año 2025</p>
+        <p class="fecha">Generado: 9 de Marzo, 2026</p>
+        
+        <div class="kpis">
+            <div class="kpi">
+                <div class="kpi-label">💰 Venta Total 2025</div>
+                <div class="kpi-value">
+                    S/ <span id="ventaTotal">--</span><span class="kpi-unit">MM</span>
+                </div>
+            </div>
+            
+            <div class="kpi">
+                <div class="kpi-label">✨ Productos Nuevos</div>
+                <div class="kpi-value">
+                    S/ <span id="ventaNueva">--</span><span class="kpi-unit">MM</span>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #f0f4ff; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <p style="color: #666; font-size: 0.95em;">
+                <strong style="color: #667eea;">% Productos Nuevos:</strong> <span id="porcentajeNuevo">--</span>%
+            </p>
+        </div>
+        
+        <h2 style="color: #1e3c72; font-size: 1.3em; margin-bottom: 15px;">📋 Desglose por Línea Comercial</h2>
+        
+        <table class="tabla-lineas">
+            <thead>
+                <tr>
+                    <th>Línea Comercial</th>
+                    <th class="num">Venta Total</th>
+                    <th class="num">Productos Nuevos</th>
+                    <th class="num">% Nuevos</th>
+                </tr>
+            </thead>
+            <tbody id="tablaLineas">
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #999;">Cargando datos...</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            <p>Datos de Odoo - Dashboard Ventas 2025</p>
+        </div>
+    </div>
+    
+    <script>
+        // Datos reales de 2025 obtenidos de Odoo
+        const datos_2025 = {
+            total_venta: 54974968.55,
+            productos_nuevos: 13941080.07,
+            lineas_procesadas: 31982,
+            por_linea: [
+                { nombre: 'PETMEDICA', venta: 27680228.02, productos_nuevos: 9487004.05 },
+                { nombre: 'AGROVET', venta: 21758795.37, productos_nuevos: 2120908.79 },
+                { nombre: 'GENVET', venta: 2129675.60, productos_nuevos: 0.00 },
+                { nombre: 'AVIVET', venta: 1028335.20, productos_nuevos: 16768.88 },
+                { nombre: 'PET NUTRISCIENCE', venta: 978502.93, productos_nuevos: 978502.93 },
+                { nombre: 'INTERPET', venta: 595566.96, productos_nuevos: 595566.96 },
+                { nombre: 'MARCA BLANCA', venta: 513455.09, productos_nuevos: 513455.09 },
+                { nombre: 'OTROS', venta: 289980.99, productos_nuevos: 228873.37 }
+            ]
+        };
+        
+        function formatearMoneda(valor) {
+            // Convertir a millones
+            return (valor / 1000000).toFixed(2);
+        }
+        
+        function formatearNumero(valor) {
+            return new Intl.NumberFormat('es-PE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(valor);
+        }
+        
+        function mostrarDatos() {
+            // Actualizar KPIs principales
+            const total = formatearMoneda(datos_2025.total_venta);
+            const nuevos = formatearMoneda(datos_2025.productos_nuevos);
+            const porcentaje = ((datos_2025.productos_nuevos / datos_2025.total_venta) * 100).toFixed(1);
+            
+            document.getElementById('ventaTotal').textContent = total;
+            document.getElementById('ventaNueva').textContent = nuevos;
+            document.getElementById('porcentajeNuevo').textContent = porcentaje;
+            
+            // Llenar tabla de líneas comerciales
+            const tbody = document.getElementById('tablaLineas');
+            tbody.innerHTML = '';
+            
+            datos_2025.por_linea.forEach(linea => {
+                const pct = linea.venta > 0 ? ((linea.productos_nuevos / linea.venta) * 100).toFixed(1) : '0.0';
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${linea.nombre}</strong></td>
+                    <td class="num">S/ ${formatearNumero(linea.venta)}</td>
+                    <td class="num">S/ ${formatearNumero(linea.productos_nuevos)}</td>
+                    <td class="num">${pct}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Agregar fila de totales
+            const trTotal = document.createElement('tr');
+            trTotal.innerHTML = `
+                <td>TOTAL 2025</td>
+                <td class="num">S/ ${formatearNumero(datos_2025.total_venta)}</td>
+                <td class="num">S/ ${formatearNumero(datos_2025.productos_nuevos)}</td>
+                <td class="num">${porcentaje}%</td>
+            `;
+            tbody.appendChild(trTotal);
+        }
+        
+        // Mostrar datos al cargar
+        document.addEventListener('DOMContentLoaded', mostrarDatos);
+    </script>
+</body>
+</html>

@@ -10,16 +10,26 @@ __pycache__/
 # Archivos de entorno
 # Contiene variables sensibles como la SECRET_KEY y el nombre de la hoja de Google.
 .env
+.env.local
+.env.*.local
 
 # Credenciales
 # ¡MUY IMPORTANTE! Nunca subas este archivo a un repositorio público.
 credentials.json
+*.pem
+*.key
 
 # Lista de usuarios autorizados
 # Contiene correos electrónicos del personal
 allowed_users.json
 whitelist.txt
 RENDER_SETUP.md
+
+# Reportes de seguridad y datos sensibles
+security_reports/
+datos_reporte_ceo.json
+*.backup
+*.bak
 
 # Archivos específicos del editor de código (ej. VSCode)
 .vscode/

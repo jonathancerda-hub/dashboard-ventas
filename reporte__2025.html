@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Ventas 2025 - Dashboard Ejecutivo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        /* Header Ejecutivo */
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .header .fecha {
+            font-size: 0.95em;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+        
+        /* Sección de KPIs */
+        .kpis-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .kpi-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            transition: transform 0.3s ease;
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+        }
+        
+        .kpi-card.nuevos {
+            border-left-color: #48bb78;
+        }
+        
+        .kpi-card.porcentaje {
+            border-left-color: #f6ad55;
+        }
+        
+        .kpi-label {
+            font-size: 0.9em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .kpi-value {
+            font-size: 2.2em;
+            font-weight: 700;
+            color: #1e3c72;
+        }
+        
+        .kpi-unit {
+            font-size: 0.6em;
+            color: #999;
+            margin-left: 5px;
+        }
+        
+        .kpi-meta {
+            font-size: 0.85em;
+            color: #999;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        /* Sección de Contenido */
+        .content-section {
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        /* Tabla de Líneas */
+        .table-section {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .table-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .numero {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+        }
+        
+        .barra-progreso {
+            background: #eee;
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .barra-relleno {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        /* Footer */
+        .footer {
+            background: #f8f9fa;
+            padding: 30px 40px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+        }
+        
+        .footer-note {
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                margin: 0;
+            }
+            
+            @page {
+                margin: 1cm;
+            }
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .content-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .kpis-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5em;
+            }
+            
+            .content-section, .table-section {
+                padding: 20px;
+            }
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 1.1em;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        
+        .badge-nuevo {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .badge-existente {
+            background: #bee3f8;
+            color: #1e3c72;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>📊 Reporte Ejecutivo de Ventas 2025</h1>
+            <p>Dashboard de Gestión Comercial - Año Completo</p>
+            <div class="fecha">Todo el año 2025 (Generado: 9 de Marzo, 2026)</div>
+        </div>
+        
+        <!-- KPIs PRINCIPALES -->
+        <div class="kpis-section">
+            <div class="kpi-card">
+                <div class="kpi-label">💰 Venta Total Acumulada</div>
+                <div class="kpi-value">S/ <span id="ventaTotal">--</span><span class="kpi-unit">MM</span></div>
+                <div class="kpi-meta">Año Completo 2025</div>
+            </div>
+            
+            <div class="kpi-card nuevos">
+                <div class="kpi-label">✨ Productos Nuevos (IPN)</div>
+                <div class="kpi-value">S/ <span id="ventaNueva">--</span><span class="kpi-unit">MM</span></div>
+                <div class="kpi-meta">% del Total: <span id="porcentajeNuevo">--</span>%</div>
+            </div>
+            
+            <div class="kpi-card porcentaje">
+                <div class="kpi-label">📈 % Avance vs Meta</div>
+                <div class="kpi-value"><span id="avanceMeta">--</span>%</div>
+                <div class="kpi-meta">Meta Anual: S/ 51.47 MM</div>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-label">🎯 Líneas Comerciales</div>
+                <div class="kpi-value" id="numLineas">--</div>
+                <div class="kpi-meta">Activas en el período</div>
+            </div>
+        </div>
+        
+        <!-- GRÁFICOS -->
+        <div class="content-section">
+            <div class="chart-container">
+                <div class="chart-title">Venta por Línea Comercial (2025)</div>
+                <canvas id="ventaPorLinea"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Productos Nuevos vs Existentes</div>
+                <canvas id="productosPorTipo"></canvas>
+            </div>
+        </div>
+        
+        <!-- TABLA DETALLADA -->
+        <div class="table-section">
+            <h2 class="table-title">Detalle de Ventas por Línea Comercial</h2>
+            <table id="tablaDetalle">
+                <thead>
+                    <tr>
+                        <th>Línea Comercial</th>
+                        <th class="numero">Venta Total (S/)</th>
+                        <th class="numero">Productos Nuevos (S/)</th>
+                        <th class="numero">% Participación</th>
+                        <th>Progreso</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaBody">
+                    <tr>
+                        <td colspan="5" class="no-data">Cargando datos...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- FOOTER -->
+        <div class="footer">
+            <div class="footer-note">
+                <p><strong>Reporte Confidencial - Uso Ejecutivo</strong></p>
+                <p>Datos del año completo 2025 extraídos de Odoo. Las cifras incluyen todas las líneas comerciales operativas. 
+                Los productos nuevos corresponden a categoría de ciclo de vida "Nuevo". 
+                Para información adicional, contactar al Área de Ventas.</p>
+                <p style="margin-top: 15px; font-size: 0.85em; color: #999;">
+                    Generado: 9 de Marzo, 2026 | Sistema: Dashboard Ventas v2.0 | Total: 31,982 líneas procesadas
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Variables globales
+        let datosVentas = null;
+        
+        // Datos reales de 2025 extraídos de Odoo + Metas desde Supabase
+        const datosEjemplo = {
+            ventaTotal: 54974968.55,
+            ventaNueva: 13941080.07,
+            metaAnual: 51468000,  // Meta anual 2025 (desde Supabase)
+            lineas: [
+                {
+                    nombre: 'PETMEDICA',
+                    venta: 27680228.02,
+                    ventaNueva: 9487004.05,
+                    meta: 26116000  // Meta desde Supabase
+                },
+                {
+                    nombre: 'AGROVET',
+                    venta: 21758795.37,
+                    ventaNueva: 2120908.79,
+                    meta: 21785000
+                },
+                {
+                    nombre: 'GENVET',
+                    venta: 2129675.60,
+                    ventaNueva: 0.00,
+                    meta: 80000
+                },
+                {
+                    nombre: 'AVIVET',
+                    venta: 1028335.20,
+                    ventaNueva: 16768.88,
+                    meta: 975000
+                },
+                {
+                    nombre: 'PET NUTRISCIENCE',
+                    venta: 978502.93,
+                    ventaNueva: 978502.93,
+                    meta: 960000
+                },
+                {
+                    nombre: 'INTERPET',
+                    venta: 595566.96,
+                    ventaNueva: 595566.96,
+                    meta: 700000
+                },
+                {
+                    nombre: 'MARCA BLANCA',
+                    venta: 513455.09,
+                    ventaNueva: 513455.09,
+                    meta: 0  // Sin meta en Supabase
+                },
+                {
+                    nombre: 'OTROS',
+                    venta: 289980.99,
+                    ventaNueva: 228873.37,
+                    meta: 272000
+                }
+            ]
+        };
+        
+        // Cargar datos desde JSON
+        async function cargarDatos() {
+            try {
+                const response = await fetch('datos_reporte_ceo.json');
+                if (response.ok) {
+                    datosVentas = await response.json();
+                    console.log('✅ Datos cargados desde JSON');
+                } else {
+                    throw new Error('No se encontró archivo de datos');
+                }
+            } catch (error) {
+                console.warn('⚠️ Usando datos de ejemplo:', error.message);
+                datosVentas = datosEjemplo;
+            }
+        }
+        
+        // Inicializar reporte
+        function inicializarReporte() {
+            actualizarKPIs();
+            crearGraficoVentasPorLinea();
+            crearGraficoProductosPorTipo();
+            llenarTablaDetalle();
+        }
+        
+        function formatearMoneda(valor) {
+            return (valor / 1000000).toFixed(2);  // Convertir a millones con 2 decimales
+        }
+        
+        function actualizarKPIs() {
+            const { ventaTotal, ventaNueva, metaAnual, lineas } = datosVentas;
+            
+            document.getElementById('ventaTotal').textContent = formatearMoneda(ventaTotal);
+            document.getElementById('ventaNueva').textContent = formatearMoneda(ventaNueva);
+            document.getElementById('porcentajeNuevo').textContent = 
+                ((ventaNueva / ventaTotal) * 100).toFixed(1);
+            document.getElementById('avanceMeta').textContent = 
+                ((ventaTotal / metaAnual) * 100).toFixed(1);
+            document.getElementById('numLineas').textContent = lineas.length;
+        }
+        
+        function crearGraficoVentasPorLinea() {
+            const ctx = document.getElementById('ventaPorLinea').getContext('2d');
+            const lineas = datosVentas.lineas.sort((a, b) => b.venta - a.venta);
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: lineas.map(l => l.nombre),
+                    datasets: [{
+                        data: lineas.map(l => l.venta),
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#4facfe',
+                            '#00f2fe'
+                        ],
+                        borderColor: 'white',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 11, weight: 'bold' },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const valor = formatearMoneda(context.parsed);
+                                    const total = datosVentas.ventaTotal;
+                                    const porcentaje = ((context.parsed / total) * 100).toFixed(1);
+                                    return `S/ ${valor}M (${porcentaje}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function crearGraficoProductosPorTipo() {
+            const ctx = document.getElementById('productosPorTipo').getContext('2d');
+            const ventaNueva = datosVentas.ventaNueva;
+            const ventaExistente = datosVentas.ventaTotal - ventaNueva;
+            
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Productos Nuevos', 'Productos Existentes'],
+                    datasets: [{
+                        data: [ventaNueva, ventaExistente],
+                        backgroundColor: [
+                            '#48bb78',
+                            '#cbd5e0'
+                        ],
+                        borderColor: 'white',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 11, weight: 'bold' },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const valor = formatearMoneda(context.parsed);
+                                    const porcentaje = ((context.parsed / datosVentas.ventaTotal) * 100).toFixed(1);
+                                    return `S/ ${valor}M (${porcentaje}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function llenarTablaDetalle() {
+            const tbody = document.getElementById('tablaBody');
+            tbody.innerHTML = '';
+            
+            const lineas = datosVentas.lineas.sort((a, b) => b.venta - a.venta);
+            const totalVenta = datosVentas.ventaTotal;
+            
+            lineas.forEach((linea, idx) => {
+                const porcentaje = ((linea.venta / totalVenta) * 100).toFixed(1);
+                const fila = document.createElement('tr');
+                
+                fila.innerHTML = `
+                    <td><strong>${linea.nombre}</strong></td>
+                    <td class="numero">S/ ${formatearMoneda(linea.venta)}M</td>
+                    <td class="numero">
+                        <span class="badge badge-nuevo">S/ ${formatearMoneda(linea.ventaNueva)}M</span>
+                    </td>
+                    <td class="numero">${porcentaje}%</td>
+                    <td>
+                        <div class="barra-progreso">
+                            <div class="barra-relleno" style="width: ${porcentaje}%"></div>
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(fila);
+            });
+            
+            // Fila de total
+            const filaTotal = document.createElement('tr');
+            filaTotal.style.fontWeight = 'bold';
+            filaTotal.style.background = '#f0f4ff';
+            filaTotal.innerHTML = `
+                <td>TOTAL 2025</td>
+                <td class="numero">S/ ${formatearMoneda(totalVenta)}M</td>
+                <td class="numero">
+                    <span class="badge badge-nuevo">S/ ${formatearMoneda(datosVentas.ventaNueva)}M</span>
+                </td>
+                <td class="numero">100%</td>
+                <td><div class="barra-progreso"><div class="barra-relleno" style="width: 100%"></div></div></td>
+            `;
+            tbody.appendChild(filaTotal);
+        }
+        
+        // Ejecutar al cargar
+        document.addEventListener('DOMContentLoaded', async () => {
+            await cargarDatos();
+            inicializarReporte();
+        });
+    </script>
+</body>
+</html>
