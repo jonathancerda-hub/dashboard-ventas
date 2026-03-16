@@ -26,9 +26,9 @@ class SupabaseManager:
         try:
             self.supabase: Client = create_client(supabase_url, supabase_key)
             self.enabled = True
-            print("✅ Conexión a Supabase establecida")
+            print("[OK] Conexión a Supabase establecida")
         except Exception as e:
-            print(f"❌ Error al conectar con Supabase: {e}")
+            print(f"[ERROR] Error al conectar con Supabase: {e}")
             self.supabase = None
             self.enabled = False
     
