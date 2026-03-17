@@ -49,6 +49,6 @@ metas_vendedores.json
 *.sqlite
 *.sqlite3
 
-# Archivos de test
-test_*.py
-check_*.py
+# Archivos de test en la raíz (no en tests/)
+/test_*.py
+/check_*.py
