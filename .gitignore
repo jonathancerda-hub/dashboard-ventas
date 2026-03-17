@@ -44,3 +44,11 @@ datos_reporte_ceo.json
 metas.json
 equipos_ventas.json
 metas_vendedores.json
+# Bases de datos locales
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de test
+test_*.py
+check_*.py
