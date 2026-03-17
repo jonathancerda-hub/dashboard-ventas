@@ -3,9 +3,11 @@
 import requests
 import json
 import os
-import logging
 import pandas as pd
 from datetime import datetime, timedelta
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class OdooManager:
     def get_commercial_lines_stacked_data(self, date_from=None, date_to=None, linea_id=None, partner_id=None):
@@ -104,23 +106,23 @@ class OdooManager:
                 if "result" in result and result["result"]:
                     self.uid = result["result"]
                     self.models = self._create_jsonrpc_models_proxy()
-                    print(f"✅ Odoo conectado (JSON-RPC). UID: {self.uid}")
+                    logger.info(f"Odoo conectado (JSON-RPC). UID: {self.uid}")
                 else:
                     self.uid = None
                     self.models = None
-                    print("❌ Advertencia: Autenticación falló. Continuando en modo offline.")
+                    logger.warning("Autenticación falló. Continuando en modo offline.")
             except requests.exceptions.Timeout:
-                print(f"⏱️ Timeout al conectar a Odoo después de {self.rpc_timeout}s. Continuando en modo offline.")
+                logger.warning(f"Timeout al conectar a Odoo después de {self.rpc_timeout}s. Continuando en modo offline.")
                 self.uid = None
                 self.models = None
             except Exception as auth_e:
-                print(f"⚠️ Error durante authenticate() a Odoo: {auth_e}")
+                logger.warning(f"Error durante authenticate() a Odoo: {auth_e}")
                 self.uid = None
                 self.models = None
                 
         except Exception as e:
-            print(f"Error en la conexión a Odoo: {e}")
-            print("Continuando en modo offline.")
+            logger.error(f"Error en la conexión a Odoo: {e}", exc_info=True)
+            logger.info("Continuando en modo offline.")
             self.uid = None
             self.models = None
 

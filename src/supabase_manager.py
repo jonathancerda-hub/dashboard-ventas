@@ -3,8 +3,10 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from src.logging_config import get_logger
 
 load_dotenv()
+logger = get_logger(__name__)
 
 class SupabaseManager:
     """
@@ -18,7 +20,7 @@ class SupabaseManager:
         supabase_key = os.getenv('SUPABASE_KEY')
         
         if not supabase_url or not supabase_key:
-            print("⚠️ Credenciales de Supabase no configuradas. Usando modo fallback.")
+            logger.warning("Credenciales de Supabase no configuradas. Usando modo fallback.")
             self.supabase = None
             self.enabled = False
             return
@@ -26,7 +28,7 @@ class SupabaseManager:
         try:
             self.supabase: Client = create_client(supabase_url, supabase_key)
             self.enabled = True
-            print("[OK] Conexión a Supabase establecida")
+            logger.info("Conexión a Supabase establecida")
         except Exception as e:
             print(f"[ERROR] Error al conectar con Supabase: {e}")
             self.supabase = None

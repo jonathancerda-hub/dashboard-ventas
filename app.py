@@ -6,6 +6,11 @@ import os
 # Cargar variables de entorno ANTES de importar módulos que las necesitan
 load_dotenv()
 
+# Configurar logging ANTES de importar otros módulos
+from src.logging_config import setup_logging, get_logger
+setup_logging(log_level=os.getenv('LOG_LEVEL', 'INFO'))
+logger = get_logger(__name__)
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
 from src.odoo_manager import OdooManager
 from src.supabase_manager import SupabaseManager
@@ -47,7 +52,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 try:
     data_manager = OdooManager()
 except Exception as e:
-    print(f"⚠️ No se pudo inicializar OdooManager: {e}. Continuando en modo offline.")
+    logger.warning(f"No se pudo inicializar OdooManager: {e}. Continuando en modo offline.")
     # Crear un stub mínimo con las funciones usadas en la app para evitar fallos
     class _StubManager:
         def get_filter_options(self):
@@ -110,7 +115,7 @@ def after_request(response):
                         method=request.method
                     )
                 except Exception as e:
-                    print(f"⚠️ Error al registrar analytics: {e}")
+                    logger.error(f"Error al registrar analytics: {e}", exc_info=True)
     
     return response
 
@@ -529,10 +534,10 @@ def dashboard():
                 limit=10000
             )
             
-            print(f"📊 Obtenidas {len(sales_data)} líneas de ventas para el dashboard")
+            logger.info(f"Obtenidas {len(sales_data)} líneas de ventas para el dashboard")
             
         except Exception as e:
-            print(f"⚠️ Error obteniendo datos de Odoo: {e}")
+            logger.error(f"Error obteniendo datos de Odoo: {e}", exc_info=True)
             sales_data = []
         
         # Procesar datos de ventas por línea comercial
@@ -2112,7 +2117,9 @@ if (document.getElementById('visitsPerDayChart')) {{
 
 
 if __name__ == '__main__':
-    print("🚀 Iniciando Dashboard de Ventas Farmacéuticas...")
-    print("📊 Disponible en: http://127.0.0.1:5000")
-    print("🔐 Usuario: configurado en .env")
+    logger.info("="*60)
+    logger.info("Dashboard de Ventas Farmacéuticas")
+    logger.info("Disponible en: http://127.0.0.1:5000")
+    logger.info("Usuario: configurado en .env")
+    logger.info("="*60)
     app.run(debug=True)
