@@ -30,6 +30,25 @@ import pytz
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
+# Configuración de seguridad para sesiones (A01: Broken Authentication)
+app.config.update(
+    # Expiración de sesión: 8 horas de inactividad
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    
+    # Cookies de sesión no accesibles desde JavaScript (previene XSS)
+    SESSION_COOKIE_HTTPONLY=True,
+    
+    # Protección CSRF: cookies solo enviadas con requests same-site
+    SESSION_COOKIE_SAMESITE='Lax',  # 'Lax' permite OAuth redirects
+    
+    # SECURE solo en producción (requiere HTTPS)
+    # En desarrollo con HTTP, debe estar en False
+    SESSION_COOKIE_SECURE=os.getenv('FLASK_ENV') == 'production',
+    
+    # Nombre de cookie personalizado (security by obscurity)
+    SESSION_COOKIE_NAME='__Host-session' if os.getenv('FLASK_ENV') == 'production' else 'session'
+)
+
 # Configuración OAuth2 Google
 oauth = OAuth(app)
 google = oauth.register(
@@ -93,12 +112,54 @@ try:
 except Exception as e:
     logger.warning(f"La migración de permisos ya se ejecutó o hubo un error: {e}")
 
-# --- Middleware para Analytics ---
+# --- Middleware para Analytics y Seguridad ---
+
+def verify_session_expiration():
+    """
+    Verifica que la sesión no haya expirado manualmente.
+    Complementa PERMANENT_SESSION_LIFETIME con validación custom.
+    """
+    # Solo verificar si el usuario está logueado
+    if 'username' not in session:
+        return True
+    
+    # Solo verificar si existe login_time (sesiones antiguas no lo tienen)
+    if 'login_time' not in session:
+        # Sesión antigua sin login_time - añadir timestamp actual
+        session['login_time'] = datetime.now(UTC_TZ).isoformat()
+        return True
+    
+    try:
+        login_time = datetime.fromisoformat(session['login_time'])
+        
+        # Si login_time es naive, hacerlo aware con UTC
+        if login_time.tzinfo is None:
+            login_time = UTC_TZ.localize(login_time)
+        
+        elapsed = datetime.now(UTC_TZ) - login_time
+        max_session_hours = int(os.getenv('MAX_SESSION_HOURS', '8'))
+        
+        if elapsed > timedelta(hours=max_session_hours):
+            logger.warning(f"Sesión expirada para {session.get('username')} (duración: {elapsed})")
+            return False
+        
+        return True
+    except Exception as e:
+        logger.error(f"Error verificando expiración de sesión: {e}", exc_info=True)
+        # En caso de error, permitir continuar (fail-open para desarrollo)
+        return True
 
 @app.before_request
 def before_request():
     """Registra información de la petición antes de procesarla."""
     g.start_time = datetime.now()
+    
+    # Verificar expiración de sesión (opcional con env var)
+    if os.getenv('ENABLE_SESSION_EXPIRATION', 'false').lower() == 'true':
+        if 'username' in session and not verify_session_expiration():
+            session.clear()
+            flash('Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.', 'warning')
+            return redirect(url_for('login'))
 
 @app.after_request
 def after_request(response):
@@ -192,9 +253,12 @@ def authorize():
                 
                 if email and email in allowed_emails:
                     # Usuario autenticado y autorizado
+                    session.permanent = True  # Habilitar expiración con PERMANENT_SESSION_LIFETIME
                     session['username'] = email
                     session['user_name'] = name
                     session['user_info'] = user_info
+                    session['login_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de login
+                    logger.info(f"Usuario autenticado: {email}")
                     flash('¡Inicio de sesión exitoso!', 'success')
                     return redirect(url_for('loading'))
                 else:
@@ -223,6 +287,9 @@ def desing_login():
 
 @app.route('/logout')
 def logout():
+    """Cerrar sesión del usuario con logging de seguridad"""
+    username = session.get('username', 'unknown')
+    logger.info(f"Logout: {username} cerró sesión desde {request.remote_addr}")
     session.clear()
     flash('Has cerrado sesión correctamente.', 'info')
     return redirect(url_for('login'))
