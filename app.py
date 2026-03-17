@@ -16,6 +16,7 @@ from src.odoo_manager import OdooManager
 from src.supabase_manager import SupabaseManager
 from src.analytics_db import AnalyticsDB
 from src.permissions_manager import PermissionsManager
+from src.utils import get_meses_del_año, normalizar_linea_comercial, limpiar_nombre_producto, limpiar_nombre_atrevia
 from authlib.integrations.flask_client import OAuth
 import pandas as pd
 import json
@@ -142,147 +143,8 @@ def after_request(response):
 
 # --- Funciones Auxiliares ---
 
-def get_meses_del_año(año):
-    """Genera una lista de meses para un año específico."""
-    meses_nombres = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ]
-    meses_disponibles = []
-    for i in range(1, 13):
-        mes_key = f"{año}-{i:02d}"
-        mes_nombre = f"{meses_nombres[i-1]} {año}"
-        meses_disponibles.append({'key': mes_key, 'nombre': mes_nombre})
-    return meses_disponibles
-
-def normalizar_linea_comercial(nombre_linea):
-    """
-    Normaliza nombres de líneas comerciales agrupando GENVET y MARCA BLANCA como TERCEROS.
-    
-    Ejemplos:
-    - GENVET → TERCEROS
-    - MARCA BLANCA → TERCEROS
-    - GENVET PERÚ → TERCEROS
-    - PETMEDICA → PETMEDICA (sin cambios)
-    """
-    if not nombre_linea:
-        return nombre_linea
-    
-    nombre_upper = nombre_linea.upper().strip()
-    
-    # Agrupar GENVET y MARCA BLANCA como TERCEROS
-    if 'GENVET' in nombre_upper or 'MARCA BLANCA' in nombre_upper:
-        return 'TERCEROS'
-    
-    return nombre_linea.upper().strip()
-
-def limpiar_nombre_producto(nombre_producto):
-    """
-    Limpia los nombres de productos para agruparlos en el gráfico Top 7.
-    
-    Agrupaciones de productos:
-    - BIOCAN → "BIOCAN"
-    - ATREVIA VERSA → "ATREVIA VERSA"
-    - SURALAN (sin QUATTRO) → "SURALAN"
-    - SURALAN QUATTRO → "SURALAN QUATTRO"
-    - EARTHBORN HOLISTIC → "EARTHBORN HOLISTIC"
-    - FORMULA NATURAL → "FORMULA NATURAL"
-    - GO NATIVE (sin ESSENTIALS) → "GO NATIVE"
-    - GO NATIVE ESSENTIALS → "GO NATIVE ESSENTIALS"
-    - NUTRIBITES → "NUTRIBITES"
-    - PRO PAC → "PRO PAC"
-    - SPORTMIX → "SPORTMIX"
-    - PET DELICIA → "PET DELICIA"
-    - ATREVIA (otros) → Agrupa por sub-producto (ONE, XR, etc.)
-    """
-    if not nombre_producto:
-        return nombre_producto
-    
-    import re
-    nombre_upper = nombre_producto.upper()
-    
-    # === AGRUPACIONES COMPLETAS (todas las variantes en un solo grupo) ===
-    
-    # BIOCAN: Todas las variantes
-    if 'BIOCAN' in nombre_upper:
-        return 'BIOCAN'
-    
-    # GO NATIVE ESSENTIALS: Debe ir ANTES de GO NATIVE para detectarlo primero
-    if 'GO NATIVE ESSENTIALS' in nombre_upper or 'GO NATIVE ESSENTIAL' in nombre_upper:
-        return 'GO NATIVE ESSENTIALS'
-    
-    # GO NATIVE: Sin ESSENTIALS
-    if 'GO NATIVE' in nombre_upper:
-        return 'GO NATIVE'
-    
-    # EARTHBORN HOLISTIC
-    if 'EARTHBORN' in nombre_upper and 'HOLISTIC' in nombre_upper:
-        return 'EARTHBORN HOLISTIC'
-    
-    # FORMULA NATURAL
-    if 'FORMULA NATURAL' in nombre_upper:
-        return 'FORMULA NATURAL'
-    
-    # NUTRIBITES
-    if 'NUTRIBITES' in nombre_upper or 'NUTRIBITE' in nombre_upper:
-        return 'NUTRIBITES'
-    
-    # PRO PAC
-    if 'PRO PAC' in nombre_upper:
-        return 'PRO PAC'
-    
-    # SPORTMIX
-    if 'SPORTMIX' in nombre_upper:
-        return 'SPORTMIX'
-    
-    # PET DELICIA
-    if 'PET DELICIA' in nombre_upper or ('CACAROLINHA' in nombre_upper or 'JARDINEIRA' in nombre_upper or 
-        'MARAVILHA' in nombre_upper or 'PICADINHO' in nombre_upper or 
-        'RISOTINHO' in nombre_upper or 'PANELINHA' in nombre_upper):
-        return 'PET DELICIA'
-    
-    # SURALAN QUATTRO: Debe ir ANTES de SURALAN para detectarlo primero
-    if 'SURALAN' in nombre_upper and 'QUATTRO' in nombre_upper:
-        return 'SURALAN QUATTRO'
-    
-    # SURALAN: Sin QUATTRO
-    if 'SURALAN' in nombre_upper:
-        return 'SURALAN'
-    
-    # ATREVIA VERSA: Todas las presentaciones
-    if 'ATREVIA VERSA' in nombre_upper or 'ATREVIA' in nombre_upper and 'VERSA' in nombre_upper:
-        return 'ATREVIA VERSA'
-    
-    # === ATREVIA (otros): Agrupación por sub-producto ===
-    if 'ATREVIA' not in nombre_upper:
-        return nombre_producto
-    
-    # Lista de palabras que indican tamaño/presentación a eliminar para ATREVIA
-    tamanos_presentaciones = [
-        'MEDIUM', 'LARGE', 'SMALL', 'MINI', 'EXTRA LARGE', 'XL', 'L', 'M', 'S', 
-        'SPOT ON MEDIUM', 'SPOT ON LARGE', 'SPOT ON SMALL', 'SPOT ON MINI',
-        'CATS SPOT ON MEDIUM', 'CATS SPOT ON LARGE', 'CATS SPOT ON SMALL', 'CATS SPOT ON MINI',
-        'SPOT ON'
-    ]
-    
-    nombre_limpio = nombre_producto.strip()
-    
-    # Paso 1: Eliminar (N) al final si existe
-    nombre_limpio = re.sub(r'\s*\(N\)\s*$', '', nombre_limpio, flags=re.IGNORECASE).strip()
-    
-    # Paso 2: Ordenar por longitud descendente para procesar primero las frases más largas
-    tamanos_ordenados = sorted(tamanos_presentaciones, key=len, reverse=True)
-    
-    for tamano in tamanos_ordenados:
-        # Buscar y eliminar el tamaño/presentación al final del nombre
-        if nombre_limpio.upper().endswith(' ' + tamano):
-            nombre_limpio = nombre_limpio[:-(len(tamano) + 1)].strip()
-            break
-    
-    return nombre_limpio
-
-# Mantener alias para compatibilidad con código existente
-limpiar_nombre_atrevia = limpiar_nombre_producto
+# Las funciones auxiliares han sido movidas a src/utils/ para mejor organización
+# Imports: get_meses_del_año, normalizar_linea_comercial, limpiar_nombre_producto, limpiar_nombre_atrevia
 
 @app.route('/login')
 def login():
