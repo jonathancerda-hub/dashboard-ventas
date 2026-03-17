@@ -15,6 +15,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from src.odoo_manager import OdooManager
 from src.supabase_manager import SupabaseManager
 from src.analytics_db import AnalyticsDB
+from src.permissions_manager import PermissionsManager
 from authlib.integrations.flask_client import OAuth
 import pandas as pd
 import json
@@ -70,6 +71,26 @@ supabase_manager = SupabaseManager()
 
 # Inicializar sistema de analytics
 analytics_db = AnalyticsDB()
+
+# Inicializar sistema de permisos
+permissions_manager = PermissionsManager()
+
+# Migración inicial de permisos (solo corre la primera vez)
+try:
+    # Usuarios con acceso completo de administrador
+    admin_full_emails = [
+        "jonathan.cerda@agrovetmarket.com",
+        "janet.hueza@agrovetmarket.com",
+        "juan.portal@agrovetmarket.com",
+        "AMAHOdoo@agrovetmarket.com",
+        "miguel.hernandez@agrovetmarket.com",
+        "juana.lovaton@agrovetmarket.com",
+        "jimena.delrisco@agrovetmarket.com"
+    ]
+    permissions_manager.migrate_from_lists(admin_full_emails, [], [])
+    logger.info("Sistema de permisos inicializado correctamente")
+except Exception as e:
+    logger.warning(f"La migración de permisos ya se ejecutó o hubo un error: {e}")
 
 # --- Middleware para Analytics ---
 
@@ -355,11 +376,11 @@ def sales():
         return redirect(url_for('login'))
     
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "juana.lovaton@agrovetmarket.com"]
-    is_admin = session.get('username') in admin_users
-    if not is_admin:
+    username = session.get('username')
+    if not permissions_manager.has_permission(username, 'view_analytics'):
         flash('No tienes permiso para acceder a esta página.', 'warning')
         return redirect(url_for('dashboard'))
+    is_admin = permissions_manager.is_admin(username)
     # --- Fin Verificación ---
     
     try:
@@ -441,8 +462,8 @@ def dashboard():
     
     try:
         # --- Lógica de Permisos de Administrador ---
-        admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com", "juana.lovaton@agrovetmarket.com", "jimena.delrisco@agrovetmarket.com"]
-        is_admin = session.get('username') in admin_users
+        username = session.get('username')
+        is_admin = permissions_manager.is_admin(username)
 
         # Obtener año seleccionado (parámetro o año actual por defecto)
         fecha_actual = datetime.now()
@@ -924,8 +945,8 @@ def dashboard_linea():
         return redirect(url_for('login'))
 
     # --- Lógica de Permisos de Administrador ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lovaton@agrovetmarket.com", "jimena.delrisco@agrovetmarket.com"]
-    is_admin = session.get('username') in admin_users
+    username = session.get('username')
+    is_admin = permissions_manager.is_admin(username)
 
     try:
         # --- 1. OBTENER FILTROS ---
@@ -1307,11 +1328,11 @@ def meta():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lovaton@agrovetmarket.com", "jimena.delrisco@agrovetmarket.com"]
-    is_admin = session.get('username') in admin_users
-    if not is_admin:
+    username = session.get('username')
+    if not permissions_manager.has_permission(username, 'edit_targets'):
         flash('No tienes permiso para acceder a esta página.', 'warning')
         return redirect(url_for('dashboard'))
+    is_admin = permissions_manager.is_admin(username)
     # --- Fin Verificación ---
     
     try:
@@ -1482,11 +1503,11 @@ def export_excel_sales():
         return redirect(url_for('login'))
     
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com", "juana.lovaton@agrovetmarket.com"]
-    is_admin = session.get('username') in admin_users
-    if not is_admin:
+    username = session.get('username')
+    if not permissions_manager.has_permission(username, 'export_data'):
         flash('No tienes permiso para exportar datos.', 'warning')
         return redirect(url_for('sales'))
+    is_admin = permissions_manager.is_admin(username)
     # --- Fin Verificación ---
     
     try:
@@ -1567,11 +1588,11 @@ def metas_vendedor():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "juana.lovaton@agrovetmarket.com", "jimena.delrisco@agrovetmarket.com"]
-    is_admin = session.get('username') in admin_users
-    if not is_admin:
+    username = session.get('username')
+    if not permissions_manager.has_permission(username, 'edit_targets'):
         flash('No tienes permiso para acceder a esta página.', 'warning')
         return redirect(url_for('dashboard'))
+    is_admin = permissions_manager.is_admin(username)
     # --- Fin Verificación ---
 
     # Obtener meses y líneas comerciales para los filtros
@@ -1710,11 +1731,11 @@ def export_dashboard_details():
         return redirect(url_for('login'))
 
     # --- Verificación de Permisos ---
-    admin_users = ["jonathan.cerda@agrovetmarket.com", "janet.hueza@agrovetmarket.com", "juan.portal@agrovetmarket.com", "AMAHOdoo@agrovetmarket.com", "miguel.hernandez@agrovetmarket.com", "juana.lovaton@agrovetmarket.com", "jimena.delrisco@agrovetmarket.com"]
-    is_admin = session.get('username') in admin_users
-    if not is_admin:
+    username = session.get('username')
+    if not permissions_manager.has_permission(username, 'export_data'):
         flash('No tienes permiso para realizar esta acción.', 'warning')
         return redirect(url_for('dashboard'))
+    is_admin = permissions_manager.is_admin(username)
     # --- Fin Verificación ---
 
     try:
@@ -1904,16 +1925,9 @@ def analytics():
     if 'username' not in session:
         return redirect(url_for('login'))
     
-    # Lista de administradores que pueden ver analytics
-    admin_emails = [
-        'jonathan.cerda@agrovetmarket.com',
-        'juan.portal@agrovetmarket.com',
-        'ena.fernandez@agrovetmarket.com',
-        'juana.lovaton@agrovetmarket.com'
-    ]
-    
-    # Verificar si el usuario es administrador
-    if session.get('username') not in admin_emails:
+    # Verificar permisos de administrador
+    username = session.get('username')
+    if not permissions_manager.has_permission(username, 'view_analytics'):
         flash('No tienes permisos para acceder a esta sección.', 'danger')
         return redirect(url_for('index'))
     
