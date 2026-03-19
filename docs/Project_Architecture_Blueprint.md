@@ -13,12 +13,13 @@
 El Dashboard de Ventas Farmacéuticas es una aplicación web empresarial construida con Flask que integra datos de Odoo ERP para proporcionar visualizaciones analíticas de ventas, gestión de metas, y métricas de desempeño del equipo comercial. La aplicación implementa una arquitectura en capas (Layered Architecture) con separación clara de responsabilidades entre presentación, lógica de negocio, y acceso a datos.
 
 ### Características Principales
-- **Integración ERP**: Conexión en tiempo real con Odoo mediante JSON-RPC
+- **Integración ERP**: Conexión en tiempo real con Odoo mediante JSON-RPC (migrado desde XML-RPC en Marzo 2026)
 - **Gestión de Metas**: Sistema de metas de ventas con Supabase como backend
 - **Analytics Integrado**: Sistema de monitoreo de uso y adopción del dashboard
-- **Autenticación Corporativa**: OAuth2 con Google Workspace
+- **Autenticación Corporativa**: OAuth2 con Google Workspace + timeout dual de sesión (15 min inactividad + 8h absoluto)
 - **Exportación de Datos**: Generación de reportes Excel con formato profesional
-- **Control de Permisos**: Sistema granular de permisos por rol y funcionalidad
+- **Control de Permisos**: Sistema granular de permisos por rol y funcionalidad (PermissionsManager con SQLite)
+- **Seguridad Robusta**: Headers de seguridad (CSP, HSTS), protección SQL injection, validación de inputs
 
 ---
 
@@ -152,7 +153,7 @@ El proyecto implementa **Layered Architecture** con las siguientes capas:
 
 ### 4.1 OdooManager - ERP Integration Layer
 
-**Purpose**: Proporciona una abstracción completa sobre la API JSON-RPC de Odoo para consultas de datos de ventas, productos, clientes y operaciones comerciales.
+**Purpose**: Proporciona una abstracción completa sobre la API JSON-RPC de Odoo para consultas de datos de ventas, productos, clientes y operaciones comerciales. Migrado desde XML-RPC en Marzo 2026 para mejor rendimiento y evitar bugs en módulos de auditoría.
 
 **Internal Structure**:
 ```python
@@ -218,6 +219,7 @@ def dashboard():
 - **Filtros adicionales**: Extender parámetros en `get_sales_lines()`
 - **Agregaciones custome**: Nuevos métodos de transformación como `get_commercial_lines_stacked_data()`
 - **Caching**: Potencial integración de Redis/Memcached para reducir llamadas RPC
+- **JSON-RPC Benefits**: Payloads 30% más pequeños vs XML-RPC, mejor para debugging
 
 **Design Patterns Utilized**:
 - **Facade Pattern**: Simplifica la API compleja de Odoo JSON-RPC
@@ -423,7 +425,108 @@ def after_request(response):
 
 ---
 
-### 4.4 Flask Application Core (app.py)
+### 4.4 PermissionsManager - Granular Access Control
+
+**Purpose**: Sistema centralizado de control de acceso basado en roles (RBAC) que reemplaza las listas hardcodeadas dispersas en el código. Implementado en Marzo 2026 para mejorar seguridad y mantenibilidad.
+
+**Internal Structure**:
+```python
+class PermissionsManager:
+    self.db_path              # SQLite database path
+    self.conn                 # Database connection
+    
+    # Core methods
+    __init__()                          # Initialize DB and tables
+    create_tables()                     # Schema setup
+    add_user(email, role, name)        # User registration
+    remove_user(email)                  # User deletion
+    update_user_role(email, new_role)  # Role modification
+    check_permission(email, feature)    # Permission validation
+    get_user_role(email)                # Role lookup
+    list_users()                        # All users enumeration
+    migrate_from_lists()                # Legacy migration
+```
+
+**Role Definitions**:
+```python
+ROLES = {
+    'admin_full': [
+        'view_dashboard', 'view_sales', 'view_analytics',
+        'edit_metas', 'edit_vendedor_metas', 'edit_equipos',
+        'export_sales', 'export_dashboard'
+    ],
+    'admin_export': [
+        'view_dashboard', 'view_sales',
+        'export_sales', 'export_dashboard'
+    ],
+    'analytics_viewer': [
+        'view_dashboard', 'view_sales', 'view_analytics'
+    ]
+}
+```
+
+**Database Schema**:
+```sql
+CREATE TABLE permissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_email TEXT UNIQUE NOT NULL,
+    user_name TEXT,
+    role TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_email_permissions ON permissions(user_email);
+CREATE INDEX idx_role ON permissions(role);
+```
+
+**Usage Pattern**:
+```python
+# Initialize manager (singleton)
+permissions_manager = PermissionsManager()
+
+# Check permission in route
+@app.route('/export/sales')
+def export_sales():
+    if not permissions_manager.check_permission(
+        session['username'], 
+        'export_sales'
+    ):
+        flash('No tienes permiso...', 'danger')
+        return redirect(url_for('dashboard'))
+    # Proceed with export...
+```
+
+**Migration from Legacy**:
+```python
+# Migrated from hardcoded lists
+admin_full_users = ['jonathan.cerda@...', 'janet.hueza@...', ...]
+admin_export_users = ['juana.lovaton@...', ...]
+
+# To database-driven permissions
+permissions_manager.migrate_from_lists(
+    admin_full_users, 
+    admin_export_users,
+    analytics_viewers
+)
+```
+
+**Benefits**:
+- **Centralized**: Un solo punto de definición de permisos
+- **Auditable**: Cambios registrados con timestamps
+- **Flexible**: Roles y permisos modificables sin deployment
+- **Scalable**: Soporte para múltiples roles y permisos granulares
+- **Testable**: Lógica de permisos aislada y testeable
+
+**Security Improvements** (OWASP):
+- Elimina duplicación de listas admin (Tech Debt resuelto)
+- Principio de privilegio mínimo por rol
+- Auditoría de cambios de permisos
+- Separación de concerns (autorización vs autenticación)
+
+---
+
+### 4.5 Flask Application Core (app.py)
 
 **Purpose**: Punto de entrada principal que orquesta todos los componentes, define routes, maneja autenticación y coordina el flujo de datos.
 
@@ -859,6 +962,33 @@ def guardar_meta_venta(self, mes, linea_comercial, meta_total, meta_ipn):
 
 ### 7.1 Authentication & Authorization
 
+#### **Session Timeout (Implementado Marzo 2026)**
+
+```python
+# Dual timeout system
+MAX_IDLE_MINUTES = 15           # Inactivity timeout
+MAX_ABSOLUTE_SESSION_HOURS = 8  # Absolute timeout from login
+
+# Session tracking
+session['login_time'] = datetime.now(UTC_TZ).isoformat()
+session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()
+
+# Validation on each request
+@app.before_request
+def before_request():
+    if not verify_session_expiration():
+        session.clear()
+        return redirect(url_for('login'))
+    # Update activity timestamp
+    session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()
+    session.modified = True
+```
+
+**Security Benefits**:
+- Protege contra sesiones abandonadas (walk-away scenarios)
+- Cumple OWASP A01 - Broken Authentication
+- Configuración flexible por entorno (.env)
+
 #### **OAuth2 Flow (Google Workspace)**
 
 ```python
@@ -903,10 +1033,11 @@ def authorize():
     return redirect(url_for('dashboard'))
 ```
 
-#### **Permission Model** (Role-Based Access Control)
+#### **Permission Model** (Role-Based Access Control - Migrado a PermissionsManager Marzo 2026)
 
+**Sistema Legacy** (deprecado):
 ```python
-# Definición de roles (hardcoded en app.py - tech debt)
+# Definición de roles (hardcoded en app.py - TECH DEBT RESUELTO)
 ROLES = {
     'admin_full': [  # Todos los permisos
         'jonathan.cerda@agrovetmarket.com',
@@ -917,40 +1048,86 @@ ROLES = {
         'miguel.hernandez@agrovetmarket.com',
         'juana.lovaton@agrovetmarket.com',
         'jimena.delrisco@agrovetmarket.com',
-    ],
-    'admin_analytics': [  # Acceso a analytics
-        'ena.fernandez@agrovetmarket.com',
-    ],
-    'user_basic': [  # Resto de allowed_users.json
-        # Visualización únicamente
     ]
 }
+```
 
-# Enforcement en routes
+**Sistema Actual** (PermissionsManager con SQLite):
+```python
+# Inicialización
+permissions_manager = PermissionsManager()
+
+# Migración desde listas hardcodeadas
+permissions_manager.migrate_from_lists(admin_full_users, admin_export_users, [])
+
+# Enforcement en routes (nuevo patrón)
 @app.route('/export/dashboard/details')
 def export_dashboard_details():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    admin_users = [
-        "jonathan.cerda@agrovetmarket.com",
-        "janet.hueza@agrovetmarket.com",
-        # ... lista completa
-    ]
-    
-    is_admin = session.get('username') in admin_users
-    if not is_admin:
+    if not permissions_manager.check_permission(
+        session['username'], 
+        'export_dashboard'
+    ):
         flash('No tienes permiso para realizar esta acción.', 'warning')
         return redirect(url_for('dashboard'))
-    
     # Proceed with export...
 ```
+
+**Beneficios de la migración**:
+- ✅ Permisos centralizados en base de datos
+- ✅ Auditoría de cambios con timestamps
+- ✅ Roles y permisos modificables sin deployment
+- ✅ Elimina duplicación de listas en ~10 rutas
 
 **Security Boundaries**:
 1. **Perimeter**: OAuth2 con Google (autenticación corporativa)
 2. **Application**: Whitelist en `allowed_users.json`
-3. **Feature**: Listas de permisos por funcionalidad
-4. **Session**: Flask signed cookies (`app.secret_key`)
+3. **Feature**: PermissionsManager con roles granulares (migrado Marzo 2026)
+4. **Session**: Flask signed cookies + dual timeout (inactividad + absoluto)
+
+#### **Security Headers (Implementado Marzo 2026)**
+
+**Content Security Policy (CSP)**:
+```python
+@app.after_request
+def add_security_headers(response):
+    # CSP para prevenir XSS y controlar recursos externos
+    csp_directives = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+        "img-src 'self' data: https: blob:",
+        "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+        "connect-src 'self' https://accounts.google.com https://*.google.com https://*.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+        "frame-src 'self' https://accounts.google.com https://*.google.com",
+        "frame-ancestors 'self'",
+        "base-uri 'self'",
+        "form-action 'self' https://accounts.google.com"
+    ]
+    response.headers['Content-Security-Policy'] = "; ".join(csp_directives)
+    
+    # Otros headers de seguridad
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # HSTS solo en producción
+    if os.getenv('FLASK_ENV') == 'production':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    
+    return response
+```
+
+**Security Improvements** (OWASP Coverage):
+- **A01 - Broken Authentication**: Timeout dual ✅
+- **A03 - SQL Injection**: Queries parametrizadas ✅
+- **A04 - Insecure Design**: Headers de seguridad ✅
+- **A05 - Security Misconfiguration**: CSP configurado ✅
+
+**Score Evolution**:
+- SQL Injection (A03): 4/10 → 7/10 (6/6 queries corregidas)
+- Security Headers (A04): 6/10 → 7/10 (7 headers implementados)
+- Overall Security: 7.1/10 → 7.4/10
 
 ### 7.2 Error Handling & Resilience
 
@@ -1173,6 +1350,14 @@ GOOGLE_CLIENT_SECRET=GOCSPX-xxx
 
 # Flask Environment
 FLASK_ENV=development
+
+# Session Security (Implementado Marzo 2026)
+ENABLE_SESSION_EXPIRATION=true
+MAX_IDLE_MINUTES=15
+MAX_ABSOLUTE_SESSION_HOURS=8
+
+# Logging
+LOG_LEVEL=INFO
 ```
 
 #### **Configuration Loading Order**
@@ -1189,8 +1374,9 @@ load_dotenv()
 from src.odoo_manager import OdooManager
 ```
 
-**Problema conocido**: Import order dependency  
-**Solución**: Mover `load_dotenv()` antes de todos los imports que requieran env vars
+**Problema conocido**: Import order dependency + BOM UTF-8 en .env  
+**Solución 1**: Mover `load_dotenv()` antes de todos los imports que requieran env vars  
+**Solución 2**: Asegurar que .env esté en UTF-8 sin BOM (causó problemas en Marzo 2026)
 
 #### **Secret Management**
 

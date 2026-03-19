@@ -216,10 +216,11 @@ class AnalyticsDB:
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 else:
+                    # Fix SQL injection: usar INTERVAL seguro con multiplicación
                     cursor.execute("""
                         SELECT COUNT(*) as total
                         FROM page_visits
-                        WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        WHERE visit_timestamp >= NOW() - INTERVAL '1 day' * %s
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 
@@ -250,10 +251,11 @@ class AnalyticsDB:
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 else:
+                    # Fix SQL injection: usar INTERVAL seguro con multiplicación
                     cursor.execute("""
                         SELECT COUNT(DISTINCT user_email) as total
                         FROM page_visits
-                        WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        WHERE visit_timestamp >= NOW() - INTERVAL '1 day' * %s
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                     """, (days,))
                 
@@ -292,6 +294,7 @@ class AnalyticsDB:
                     """, (days, limit))
                 else:
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
+                    # Fix SQL injection: usar INTERVAL seguro con multiplicación
                     cursor.execute("""
                         SELECT 
                             user_email,
@@ -299,7 +302,7 @@ class AnalyticsDB:
                             COUNT(*) as visit_count,
                             MAX(visit_timestamp) as last_visit
                         FROM page_visits
-                        WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        WHERE visit_timestamp >= NOW() - INTERVAL '1 day' * %s
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY user_email, user_name
                         ORDER BY visit_count DESC
@@ -346,13 +349,14 @@ class AnalyticsDB:
                     return [dict(row) for row in rows]
                 else:
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
+                    # Fix SQL injection: usar INTERVAL seguro con multiplicación
                     cursor.execute("""
                         SELECT 
                             page_url,
                             page_title,
                             COUNT(*) as visit_count
                         FROM page_visits
-                        WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        WHERE visit_timestamp >= NOW() - INTERVAL '1 day' * %s
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY page_url, page_title
                         ORDER BY visit_count DESC
@@ -393,13 +397,14 @@ class AnalyticsDB:
                     return [dict(row) for row in rows]
                 else:
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
+                    # Fix SQL injection: usar INTERVAL seguro con multiplicación
                     cursor.execute("""
                         SELECT 
                             DATE(visit_timestamp) as visit_date,
                             COUNT(*) as visit_count,
                             COUNT(DISTINCT user_email) as unique_users
                         FROM page_visits
-                        WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        WHERE visit_timestamp >= NOW() - INTERVAL '1 day' * %s
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY DATE(visit_timestamp)
                         ORDER BY visit_date DESC
@@ -439,12 +444,13 @@ class AnalyticsDB:
                     return [dict(row) for row in rows]
                 else:
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
+                    # Fix SQL injection: usar INTERVAL seguro con multiplicación
                     cursor.execute("""
                         SELECT 
                             EXTRACT(HOUR FROM visit_timestamp) as hour,
                             COUNT(*) as visit_count
                         FROM page_visits
-                        WHERE visit_timestamp >= NOW() - INTERVAL '%s days'
+                        WHERE visit_timestamp >= NOW() - INTERVAL '1 day' * %s
                         AND user_email != 'jonathan.cerda@agrovetmarket.com'
                         GROUP BY EXTRACT(HOUR FROM visit_timestamp)
                         ORDER BY hour

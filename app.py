@@ -69,6 +69,71 @@ UTC_TZ = pytz.UTC
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
+# --- Security Headers y CORS (A04: Insecure Design) ---
+
+@app.after_request
+def add_security_headers(response):
+    """
+    Añade headers de seguridad a todas las respuestas HTTP.
+    - X-Frame-Options: Previene clickjacking
+    - X-Content-Type-Options: Previene MIME sniffing
+    - X-XSS-Protection: Protección XSS para navegadores legacy
+    - Content-Security-Policy: Control de recursos cargados
+    - Strict-Transport-Security: Fuerza HTTPS (solo en producción)
+    - Referrer-Policy: Control de información en headers
+    """
+    
+    # Previene que la página sea cargada en un iframe (clickjacking)
+    # SAMEORIGIN permite iframes del mismo dominio (útil para OAuth redirects)
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    
+    # Previene MIME type sniffing (fuerza a navegador a respetar Content-Type)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    
+    # Protección XSS para navegadores legacy (IE, Safari antiguo)
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    
+    # Content Security Policy - Configuración permisiva para desarrollo
+    # Permitimos inline scripts/styles y recursos de CDNs conocidos
+    # TODO: Hacer más estricto en producción moviendo scripts inline a archivos externos
+    csp_directives = [
+        "default-src 'self'",  # Por defecto solo recursos del mismo origen
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Scripts + Google + CDNs
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Estilos + Google Fonts + CDNs
+        "img-src 'self' data: https: blob:",  # Imágenes: locales, data URIs, HTTPS y blobs
+        "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Fuentes de Google y CDNs
+        "connect-src 'self' https://accounts.google.com https://*.google.com https://*.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Conexiones AJAX/fetch a Google y CDNs
+        "frame-src 'self' https://accounts.google.com https://*.google.com",  # iframes de Google OAuth
+        "frame-ancestors 'self'",  # Solo el mismo origen puede embeber esta página
+        "base-uri 'self'",  # Previene inyección de base tag
+        "form-action 'self' https://accounts.google.com"  # Forms a mismo origen + Google OAuth
+    ]
+    response.headers['Content-Security-Policy'] = "; ".join(csp_directives)
+    
+    # Strict-Transport-Security: fuerza HTTPS (solo en producción)
+    # max-age=31536000 = 1 año
+    # includeSubDomains: aplica a todos los subdominios
+    if os.getenv('FLASK_ENV') == 'production':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    
+    # Referrer-Policy: controla qué información se envía en el header Referer
+    # strict-origin-when-cross-origin: envía origin completo en mismo origen,
+    # solo origin en cross-origin, nada si de HTTPS a HTTP
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # CORS: permitir solo mismo origen (por defecto)
+    # Si necesitas permitir dominios específicos, configúralo en .env
+    allowed_origins = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+    origin = request.headers.get('Origin')
+    
+    if origin and origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    
+    return response
+
 # --- Inicialización de Managers ---
 try:
     data_manager = OdooManager()
@@ -116,32 +181,47 @@ except Exception as e:
 
 def verify_session_expiration():
     """
-    Verifica que la sesión no haya expirado manualmente.
-    Complementa PERMANENT_SESSION_LIFETIME con validación custom.
+    Verifica que la sesión no haya expirado por:
+    1. Timeout de INACTIVIDAD: 15 minutos sin actividad
+    2. Timeout ABSOLUTO: 8 horas desde login (seguridad)
     """
     # Solo verificar si el usuario está logueado
     if 'username' not in session:
         return True
     
-    # Solo verificar si existe login_time (sesiones antiguas no lo tienen)
+    # Inicializar timestamps si no existen (sesiones antiguas)
     if 'login_time' not in session:
-        # Sesión antigua sin login_time - añadir timestamp actual
         session['login_time'] = datetime.now(UTC_TZ).isoformat()
+        session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()
         return True
     
     try:
-        login_time = datetime.fromisoformat(session['login_time'])
+        now = datetime.now(UTC_TZ)
         
-        # Si login_time es naive, hacerlo aware con UTC
+        # 1. Verificar TIMEOUT ABSOLUTO (desde login)
+        login_time = datetime.fromisoformat(session['login_time'])
         if login_time.tzinfo is None:
             login_time = UTC_TZ.localize(login_time)
         
-        elapsed = datetime.now(UTC_TZ) - login_time
-        max_session_hours = int(os.getenv('MAX_SESSION_HOURS', '8'))
+        elapsed_since_login = now - login_time
+        max_session_hours = int(os.getenv('MAX_ABSOLUTE_SESSION_HOURS', '8'))
         
-        if elapsed > timedelta(hours=max_session_hours):
-            logger.warning(f"Sesión expirada para {session.get('username')} (duración: {elapsed})")
+        if elapsed_since_login > timedelta(hours=max_session_hours):
+            logger.warning(f"Sesión expirada por timeout absoluto para {session.get('username')} (duración: {elapsed_since_login})")
             return False
+        
+        # 2. Verificar TIMEOUT DE INACTIVIDAD (desde última actividad)
+        if 'last_activity_time' in session:
+            last_activity = datetime.fromisoformat(session['last_activity_time'])
+            if last_activity.tzinfo is None:
+                last_activity = UTC_TZ.localize(last_activity)
+            
+            elapsed_since_activity = now - last_activity
+            max_idle_minutes = int(os.getenv('MAX_IDLE_MINUTES', '15'))
+            
+            if elapsed_since_activity > timedelta(minutes=max_idle_minutes):
+                logger.warning(f"Sesión expirada por inactividad para {session.get('username')} (inactivo: {elapsed_since_activity})")
+                return False
         
         return True
     except Exception as e:
@@ -156,10 +236,15 @@ def before_request():
     
     # Verificar expiración de sesión (opcional con env var)
     if os.getenv('ENABLE_SESSION_EXPIRATION', 'false').lower() == 'true':
-        if 'username' in session and not verify_session_expiration():
-            session.clear()
-            flash('Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.', 'warning')
-            return redirect(url_for('login'))
+        if 'username' in session:
+            if not verify_session_expiration():
+                session.clear()
+                flash('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', 'warning')
+                return redirect(url_for('login'))
+            else:
+                # Actualizar timestamp de última actividad en cada request válido
+                session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()
+                session.modified = True  # Forzar que Flask guarde la sesión
 
 @app.after_request
 def after_request(response):
@@ -258,6 +343,7 @@ def authorize():
                     session['user_name'] = name
                     session['user_info'] = user_info
                     session['login_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de login
+                    session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de última actividad
                     logger.info(f"Usuario autenticado: {email}")
                     flash('¡Inicio de sesión exitoso!', 'success')
                     return redirect(url_for('loading'))

@@ -19,10 +19,14 @@ El diseño prioriza **entrega rápida y operación simple** sobre separación es
 
 1. **Autenticación y autorización**
    - Login con Google OAuth2.
-   - Whitelist por correo para acceso y listas hardcodeadas para rol admin en rutas sensibles.
+   - Sistema de permisos granular con PermissionsManager (SQLite).
+   - Roles: admin_full, admin_export, analytics_viewer.
+   - Timeout dual de sesión: 15 min inactividad + 8 horas absoluto.
+   - Whitelist por correo para acceso (allowed_users.json).
 
 2. **Ventas operativas**
    - Consulta de líneas de venta, filtros, exclusión de exportaciones, agregaciones y KPIs.
+   - Integración Odoo vía JSON-RPC (migrado desde XML-RPC).
 
 3. **Metas comerciales**
    - Metas por línea comercial.
@@ -30,9 +34,15 @@ El diseño prioriza **entrega rápida y operación simple** sobre separación es
 
 4. **Exportaciones**
    - Exportación de detalle de ventas a Excel (con formato).
+   - Control de permisos por rol.
 
 5. **Analytics de uso**
    - Registro de visitas por middleware y dashboard de estadísticas.
+
+6. **Seguridad**
+   - Headers de seguridad (CSP, HSTS, X-Frame-Options).
+   - Protección SQL injection (queries parametrizadas).
+   - Sanitización de inputs y validación de datos.
 
 ---
 
@@ -122,9 +132,10 @@ flowchart LR
     end
 
     subgraph Integrations[Adaptadores]
-        OdooComp[OdooManager]
+        OdooComp[OdooManager - JSON-RPC]
         SupaComp[SupabaseManager]
         AnalyticsComp[AnalyticsDB]
+        PermissionsComp[PermissionsManager]
         OAuthComp[Authlib Google Client]
     end
 
@@ -142,10 +153,11 @@ flowchart LR
 
 ### Responsabilidades clave
 
-- `app.py`: orquestación, permisos, transformaciones y render.
-- `odoo_manager.py`: acceso XML-RPC y extracción de ventas/vendedores/filtros.
+- `app.py`: orquestación, permisos, transformaciones, render y middleware de seguridad.
+- `odoo_manager.py`: acceso JSON-RPC a Odoo y extracción de ventas/vendedores/filtros.
 - `supabase_manager.py`: persistencia de metas/equipos con operaciones de lectura/escritura.
 - `analytics_db.py`: almacenamiento y consulta de eventos de navegación.
+- `permissions_manager.py`: sistema de permisos granular por rol y funcionalidad.
 
 ---
 
@@ -199,6 +211,30 @@ flowchart LR
 - **Motivación**: evitar almacenamiento temporal en disco y entregar descarga inmediata.
 - **Consecuencia**: simple para volúmenes moderados; puede impactar memoria en exportaciones grandes.
 
+### ADR-09 — Migración a JSON-RPC para Odoo (Marzo 2026)
+
+- **Decisión**: migrar de XML-RPC a JSON-RPC para comunicación con Odoo.
+- **Motivación**: evitar bugs conocidos en módulos de auditoría Odoo, mejor rendimiento y payloads más pequeños.
+- **Consecuencia**: compatibilidad con Odoo 16+, más fácil de debuggear, reduce latencia.
+
+### ADR-10 — Sistema de permisos granular con SQLite (Marzo 2026)
+
+- **Decisión**: implementar PermissionsManager con base SQLite para control de acceso.
+- **Motivación**: centralizar permisos que estaban hardcodeados en múltiples rutas, facilitar gestión de roles.
+- **Consecuencia**: permisos persistentes, auditoría de cambios, reduce duplicación de código.
+
+### ADR-11 — Timeout dual de sesión (Marzo 2026)
+
+- **Decisión**: implementar doble timeout: 15 minutos de inactividad + 8 horas absoluto desde login.
+- **Motivación**: cumplir con mejores prácticas de seguridad (OWASP A01), proteger contra sesiones abandonadas.
+- **Consecuencia**: mejora seguridad, requiere tracking de last_activity_time en sesión.
+
+### ADR-12 — Security headers y CSP (Marzo 2026)
+
+- **Decisión**: implementar Content-Security-Policy, HSTS, X-Frame-Options y otros headers.
+- **Motivación**: protección contra XSS, clickjacking, MITM (OWASP A04).
+- **Consecuencia**: CSP requiere configuración cuidadosa para CDNs externos (Google, jsdelivr, cdnjs).
+
 ---
 
 ## 7. Trade-offs principales
@@ -232,20 +268,41 @@ flowchart LR
 
 ## 8. Riesgos y deuda técnica observada
 
-1. **Archivo principal muy extenso**
+### Resuelto recientemente (Marzo 2026)
+
+1. ~~**Permisos hardcodeados en múltiples rutas**~~ ✅
+   - **RESUELTO**: Implementado PermissionsManager con SQLite.
+   - Sistema centralizado de roles y permisos.
+   - Migración completada de listas hardcodeadas.
+
+2. ~~**SQL Injection en queries**~~ ✅
+   - **RESUELTO**: 6/6 queries parametrizadas correctamente.
+   - Eliminado uso de f-strings en SQL.
+   - Score OWASP A03: 4/10 → 7/10.
+
+3. ~~**Ausencia de timeout de sesión**~~ ✅
+   - **RESUELTO**: Timeout dual implementado (inactividad + absoluto).
+   - Cumple OWASP A01 - Broken Authentication.
+
+4. ~~**Headers de seguridad ausentes**~~ ✅
+   - **RESUELTO**: CSP, HSTS, X-Frame-Options implementados.
+   - Score OWASP A04: 6/10 → 7/10.
+
+### Pendientes
+
+5. **Archivo principal muy extenso**
    - `app.py` supera ampliamente el tamaño típico para mantener cohesión de responsabilidades.
+   - Candidato para blueprints Flask.
 
-2. **Permisos hardcodeados en múltiples rutas**
-   - listas `admin_users`/`admin_emails` duplicadas, con riesgo de inconsistencia.
-
-3. **Duplicación de métodos en analytics**
+6. **Duplicación de métodos en analytics**
    - `analytics_db.py` contiene redefiniciones de métodos (`get_connection`, consultas agregadas, etc.).
 
-4. **Secretos sensibles en `.env` local**
-   - requiere rotación y política de manejo segura por entorno.
+7. **Secretos sensibles en `.env` local**
+   - Requiere rotación y política de manejo segura por entorno.
+   - **Nota**: Archivo .env con BOM UTF-8 causó problemas de carga (resuelto).
 
-5. **Reglas de negocio repetidas**
-   - filtros de “VENTA INTERNACIONAL” y normalizaciones aparecen en varios endpoints.
+8. **Reglas de negocio repetidas**
+   - Filtros de "VENTA INTERNACIONAL" y normalizaciones aparecen en varios endpoints.
 
 ---
 
@@ -270,12 +327,16 @@ flowchart LR
 
 ## 10. Mapa rápido de componentes del repo
 
-- `app.py`: entrypoint Flask, rutas, middleware, cálculo y render.
-- `odoo_manager.py`: consultas XML-RPC a Odoo.
-- `supabase_manager.py`: CRUD de metas/equipos en Supabase.
-- `analytics_db.py`: persistencia y agregados de analytics.
+- `app.py`: entrypoint Flask, rutas, middleware de seguridad, timeout de sesión, cálculo y render.
+- `src/odoo_manager.py`: consultas JSON-RPC a Odoo (migrado desde XML-RPC).
+- `src/supabase_manager.py`: CRUD de metas/equipos en Supabase.
+- `src/analytics_db.py`: persistencia y agregados de analytics.
+- `src/permissions_manager.py`: sistema de permisos granular por rol (SQLite).
 - `templates/`: vistas Jinja2 por módulo funcional.
 - `static/`: estilos y JS auxiliar.
+- `tests/`: tests unitarios y de integración (pytest).
+- `docs/`: documentación de arquitectura, seguridad y PRD.
+- `security_reports/`: auditorías de seguridad OWASP Top 10.
 
 ---
 
