@@ -617,36 +617,31 @@ def authorize():
             email = user_info.get('email')
             name = user_info.get('name')
             
-            # Verificar si el usuario está en la lista blanca
+            # Verificar si el usuario tiene permisos en Supabase
             try:
-                # Intentar leer desde variable de entorno primero
-                allowed_emails_env = os.getenv('ALLOWED_USERS')
-                if allowed_emails_env and allowed_emails_env.strip():
-                    # Si existe la variable de entorno, parsear la lista separada por comas
-                    allowed_emails = [e.strip() for e in allowed_emails_env.split(',') if e.strip()]
-                else:
-                    # Fallback: leer desde el archivo JSON local
-                    with open('allowed_users.json', 'r') as f:
-                        allowed_emails = json.load(f).get('allowed_emails', [])
+                role = permissions_manager.get_user_role(email)
                 
-                if email and email in allowed_emails:
-                    # Usuario autenticado y autorizado
+                if role:
+                    # Usuario autenticado y autorizado (tiene rol en Supabase)
                     session.permanent = True  # Habilitar expiración con PERMANENT_SESSION_LIFETIME
                     session['username'] = email
                     session['user_name'] = name
                     session['user_info'] = user_info
+                    session['user_role'] = role  # Guardar rol en sesión
                     session['login_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de login
                     session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de última actividad
-                    logger.info(f"Usuario autenticado: {email}")
+                    logger.info(f"Usuario autenticado: {email} (rol: {role})")
                     flash('¡Inicio de sesión exitoso!', 'success')
                     return redirect(url_for('loading'))
                 else:
                     # Usuario autenticado pero no autorizado
+                    logger.warning(f"Intento de acceso denegado: {email} (sin rol en sistema)")
                     flash(f'El correo {email} no tiene permiso para acceder a esta aplicación.', 'warning')
                     return redirect(url_for('login'))
                     
-            except FileNotFoundError:
-                flash('Error de configuración: El archivo de usuarios permitidos no se encuentra.', 'danger')
+            except Exception as e:
+                logger.error(f"Error verificando permisos para {email}: {e}", exc_info=True)
+                flash(f'Error al verificar permisos: {str(e)}', 'danger')
                 return redirect(url_for('login'))
             except Exception as e:
                 flash(f'Error al verificar permisos: {str(e)}', 'danger')
