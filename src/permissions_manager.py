@@ -120,7 +120,7 @@ class PermissionsManager:
                 .select('role, is_active')\
                 .eq('user_email', user_email.lower())\
                 .eq('is_active', True)\
-                .single()\
+                .maybe_single()\
                 .execute()
             
             if response.data:
@@ -262,15 +262,20 @@ class PermissionsManager:
             users = []
             for row in response.data:
                 users.append({
-                    'email': row['user_email'],
+                    'user_email': row['user_email'],
+                    'email': row['user_email'],  # Mantener compatibilidad
                     'role': row['role'],
-                    'role_display': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),
+                    'role_display_name': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),
+                    'role_display': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),  # Compatibilidad
                     'permissions': self.ROLE_PERMISSIONS.get(row['role'], []),
                     'created_at': row['created_at'],
+                    'created_at_formatted': self._format_datetime(row['created_at']),
                     'updated_at': row['updated_at'],
+                    'updated_at_formatted': self._format_datetime(row['updated_at']),
                     'created_by': row.get('created_by', 'N/A'),
                     'is_active': row['is_active'],
-                    'role_class': self._get_role_badge_class(row['role'])
+                    'role_badge_class': self._get_role_badge_class(row['role']),
+                    'role_class': self._get_role_badge_class(row['role'])  # Compatibilidad
                 })
             
             logger.debug(f"Obtenidos {len(users)} usuarios")
@@ -347,20 +352,25 @@ class PermissionsManager:
             response = self.supabase.table('user_permissions')\
                 .select('*')\
                 .eq('user_email', user_email.lower())\
-                .single()\
+                .maybe_single()\
                 .execute()
             
             if response.data:
                 row = response.data
                 return {
-                    'email': row['user_email'],
+                    'user_email': row['user_email'],
+                    'email': row['user_email'],  # Compatibilidad
                     'role': row['role'],
                     'role_display': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),
+                    'role_display_name': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),  # Compatibilidad
                     'permissions': self.ROLE_PERMISSIONS.get(row['role'], []),
                     'created_at': row['created_at'],
+                    'created_at_formatted': self._format_datetime(row['created_at']),
                     'updated_at': row['updated_at'],
+                    'updated_at_formatted': self._format_datetime(row['updated_at']),
                     'created_by': row.get('created_by', 'N/A'),
-                    'is_active': row['is_active']
+                    'is_active': row['is_active'],
+                    'role_badge_class': self._get_role_badge_class(row['role'])
                 }
             
             return None
@@ -459,6 +469,29 @@ class PermissionsManager:
             'user_basic': 'secondary'
         }
         return badge_classes.get(role, 'secondary')
+    
+    @staticmethod
+    def _format_datetime(dt_str: str) -> str:
+        """
+        Formatea datetime de Supabase a formato legible en zona horaria de Perú (UTC-5).
+        
+        Args:
+            dt_str: String datetime de Supabase (ISO format)
+        
+        Returns:
+            str: Fecha formateada en hora de Perú (ej: '24 Mar 2026 14:30')
+        """
+        if not dt_str:
+            return 'N/A'
+        try:
+            from datetime import datetime, timedelta
+            # Parsear datetime UTC
+            dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+            # Convertir a hora de Perú (UTC-5)
+            dt_peru = dt - timedelta(hours=5)
+            return dt_peru.strftime('%d %b %Y %H:%M')
+        except Exception:
+            return dt_str
     
     @staticmethod
     def get_all_roles() -> List[Dict]:
