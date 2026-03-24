@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<style>
+    .admin-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .admin-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #007bff;
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        margin: 0;
+        color: #007bff;
+    }
+    
+    .stat-card p {
+        margin: 0.5rem 0 0 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .filters-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .table-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .log-details {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .log-metadata {
+        font-size: 0.85rem;
+        color: #999;
+        display: flex;
+        gap: 1rem;
+        margin-top: 0.3rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <!-- Header -->
+    <div class="admin-header">
+        <div>
+            <h1><i class="bi bi-clock-history"></i> Historial de Auditoría</h1>
+            <p class="text-muted">Seguimiento completo de cambios en permisos de usuarios</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-people"></i> Volver a Usuarios
+            </a>
+        </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="stats-grid">
+        <div class="stat-card" style="border-left-color: #28a745;">
+            <h3 style="color: #28a745;">{{ stats.total_creates }}</h3>
+            <p><i class="bi bi-person-plus"></i> Usuarios Creados</p>
+        </div>
+        <div class="stat-card" style="border-left-color: #007bff;">
+            <h3 style="color: #007bff;">{{ stats.total_updates }}</h3>
+            <p><i class="bi bi-pencil"></i> Actualizaciones de Rol</p>
+        </div>
+        <div class="stat-card" style="border-left-color: #dc3545;">
+            <h3 style="color: #dc3545;">{{ stats.total_deletes }}</h3>
+            <p><i class="bi bi-trash"></i> Usuarios Eliminados</p>
+        </div>
+        <div class="stat-card" style="border-left-color: #6c757d;">
+            <h3 style="color: #6c757d;">{{ stats.total_logs }}</h3>
+            <p><i class="bi bi-list-ul"></i> Total de Cambios</p>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="filters-container">
+        <h5 class="mb-3"><i class="bi bi-funnel"></i> Filtros</h5>
+        <form method="GET" action="{{ url_for('admin_audit_log') }}" class="row g-3">
+            <div class="col-md-3">
+                <label for="days" class="form-label">Período</label>
+                <select class="form-select" name="days" id="days">
+                    <option value="7" {% if days == 7 %}selected{% endif %}>Últimos 7 días</option>
+                    <option value="30" {% if days == 30 %}selected{% endif %}>Últimos 30 días</option>
+                    <option value="90" {% if days == 90 %}selected{% endif %}>Últimos 90 días</option>
+                    <option value="365" {% if days == 365 %}selected{% endif %}>Último año</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label for="action" class="form-label">Tipo de Acción</label>
+                <select class="form-select" name="action" id="action">
+                    <option value="">Todas las acciones</option>
+                    <option value="CREATE" {% if current_action == 'CREATE' %}selected{% endif %}>Creaciones</option>
+                    <option value="UPDATE" {% if current_action == 'UPDATE' %}selected{% endif %}>Actualizaciones</option>
+                    <option value="DELETE" {% if current_action == 'DELETE' %}selected{% endif %}>Eliminaciones</option>
+                    <option value="DEACTIVATE" {% if current_action == 'DEACTIVATE' %}selected{% endif %}>Desactivaciones</option>
+                    <option value="ACTIVATE" {% if current_action == 'ACTIVATE' %}selected{% endif %}>Reactivaciones</option>
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label for="admin" class="form-label">Administrador</label>
+                <input type="text" class="form-control" name="admin" id="admin" 
+                       value="{{ current_admin }}" placeholder="Filtrar por admin...">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Tabla de Logs -->
+    <div class="table-container">
+        <h3 class="mb-3">Registro de Cambios</h3>
+        <p class="text-muted">Mostrando {{ logs | length }} cambios</p>
+        
+        <div class="table-responsive">
+            <table id="auditTable" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha y Hora</th>
+                        <th>Acción</th>
+                        <th>Administrador</th>
+                        <th>Usuario Afectado</th>
+                        <th>Cambio</th>
+                        <th>Detalles</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>
+                            <strong>{{ log.timestamp[:10] }}</strong><br>
+                            <small class="text-muted">{{ log.timestamp[11:19] }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ log.action_class if log.action_class else 'secondary' }}">
+                                {{ log.action }}
+                            </span>
+                        </td>
+                        <td>
+                            <i class="bi bi-person-badge"></i>
+                            {{ log.admin_email }}
+                        </td>
+                        <td>
+                            <i class="bi bi-person"></i>
+                            {{ log.target_user_email }}
+                        </td>
+                        <td>
+                            <div class="log-details">
+                                {% if log.action == 'CREATE' %}
+                                    <span class="badge bg-success">{{ log.new_value }}</span>
+                                    <small class="text-muted d-block">Rol asignado</small>
+                                {% elif log.action == 'UPDATE' %}
+                                    <span class="badge bg-secondary">{{ log.old_value }}</span>
+                                    <i class="bi bi-arrow-right"></i>
+                                    <span class="badge bg-primary">{{ log.new_value }}</span>
+                                    <small class="text-muted d-block">Cambio de rol</small>
+                                {% elif log.action in ['DELETE', 'DEACTIVATE'] %}
+                                    <span class="text-danger">Usuario eliminado</span>
+                                {% elif log.action == 'ACTIVATE' %}
+                                    <span class="text-success">Usuario reactivado</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="log-metadata">
+                                {% if log.ip_address %}
+                                <span title="IP Address">
+                                    <i class="bi bi-geo-alt"></i> {{ log.ip_address }}
+                                </span>
+                                {% endif %}
+                                {% if log.details %}
+                                <button type="button" 
+                                        class="btn btn-sm btn-outline-info"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#detailsModal{{ log.id }}"
+                                        title="Ver detalles">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
+                                
+                                <!-- Modal de detalles -->
+                                <div class="modal fade" id="detailsModal{{ log.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Detalles del Cambio</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <pre>{{ log.details | tojson(indent=2) }}</pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#auditTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        },
+        order: [[0, 'desc']], // Ordenar por fecha descendente
+        pageLength: 50
+    });
+});
+</script>
+{% endblock %}

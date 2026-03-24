@@ -11,13 +11,15 @@ from src.logging_config import setup_logging, get_logger
 setup_logging(log_level=os.getenv('LOG_LEVEL', 'INFO'))
 logger = get_logger(__name__)
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, jsonify
 from src.odoo_manager import OdooManager
 from src.supabase_manager import SupabaseManager
 from src.analytics_db import AnalyticsDB
 from src.permissions_manager import PermissionsManager
+from src.audit_logger import AuditLogger
 from src.utils import get_meses_del_año, normalizar_linea_comercial, limpiar_nombre_producto, limpiar_nombre_atrevia
 from authlib.integrations.flask_client import OAuth
+from functools import wraps
 import pandas as pd
 import json
 import io
@@ -160,22 +162,8 @@ analytics_db = AnalyticsDB()
 # Inicializar sistema de permisos
 permissions_manager = PermissionsManager()
 
-# Migración inicial de permisos (solo corre la primera vez)
-try:
-    # Usuarios con acceso completo de administrador
-    admin_full_emails = [
-        "jonathan.cerda@agrovetmarket.com",
-        "janet.hueza@agrovetmarket.com",
-        "juan.portal@agrovetmarket.com",
-        "AMAHOdoo@agrovetmarket.com",
-        "miguel.hernandez@agrovetmarket.com",
-        "juana.lovaton@agrovetmarket.com",
-        "jimena.delrisco@agrovetmarket.com"
-    ]
-    permissions_manager.migrate_from_lists(admin_full_emails, [], [])
-    logger.info("Sistema de permisos inicializado correctamente")
-except Exception as e:
-    logger.warning(f"La migración de permisos ya se ejecutó o hubo un error: {e}")
+# Inicializar sistema de auditoría
+audit_logger = AuditLogger()
 
 # --- Middleware para Analytics y Seguridad ---
 
@@ -286,6 +274,311 @@ def after_request(response):
                     logger.error(f"Error al registrar analytics: {e}", exc_info=True)
     
     return response
+
+# --- Decoradores de Autenticación y Autorización ---
+
+def login_required(f):
+    """Decorador que requiere que el usuario esté logueado"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            flash('Por favor inicia sesión para acceder', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_admin_full(f):
+    """Decorador que requiere rol admin_full para acceder"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            flash('Por favor inicia sesión para acceder', 'warning')
+            return redirect(url_for('login'))
+        
+        user_email = session.get('username')
+        if not permissions_manager.is_admin(user_email):
+            flash('Acceso denegado. Esta sección requiere permisos de administrador.', 'danger')
+            logger.warning(f"Intento de acceso no autorizado a ruta admin por {user_email}")
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- Rutas del Módulo de Administración de Permisos ---
+
+@app.route('/admin/users')
+@require_admin_full
+def admin_users():
+    """
+    Lista todos los usuarios con sus roles y permisos.
+    Solo accesible por usuarios con rol admin_full.
+    """
+    try:
+        # Obtener todos los usuarios
+        users = permissions_manager.get_all_users(include_inactive=False)
+        
+        # Obtener logs recientes para el dashboard
+        recent_logs = audit_logger.get_recent_logs(limit=10)
+        
+        # Estadísticas
+        total_users = permissions_manager.count_users(active_only=True)
+        total_admins = permissions_manager.count_admins(active_only=True)
+        changes_last_week = audit_logger.count_changes_last_week()
+        
+        # Obtener todos los roles disponibles para filtros
+        roles = permissions_manager.get_all_roles()
+        
+        return render_template('admin/users_list.html',
+                             users=users,
+                             recent_logs=recent_logs,
+                             total_users=total_users,
+                             total_admins=total_admins,
+                             changes_last_week=changes_last_week,
+                             roles=roles,
+                             current_user=session.get('username'))
+    except Exception as e:
+        logger.error(f"Error en ruta /admin/users: {e}", exc_info=True)
+        flash('Error al cargar lista de usuarios', 'danger')
+        return redirect(url_for('dashboard'))
+
+@app.route('/admin/users/add', methods=['GET', 'POST'])
+@require_admin_full
+def admin_add_user():
+    """
+    Formulario para agregar nuevo usuario.
+    GET: Muestra formulario
+    POST: Procesa creación de usuario
+    """
+    if request.method == 'POST':
+        try:
+            email = request.form.get('email', '').strip().lower()
+            role = request.form.get('role', '').strip()
+            
+            # Validaciones
+            if not email or not role:
+                flash('Email y rol son requeridos', 'danger')
+                return redirect(url_for('admin_add_user'))
+            
+            # Validar email corporativo
+            allowed_domains = os.getenv('ALLOWED_EMAIL_DOMAINS', '@agrovetmarket.com').split(',')
+            if not any(email.endswith(domain) for domain in allowed_domains):
+                flash(f'Email debe ser corporativo ({", ".join(allowed_domains)})', 'danger')
+                return redirect(url_for('admin_add_user'))
+            
+            # Validar que el rol exista
+            if role not in permissions_manager.ROLE_PERMISSIONS:
+                flash('Rol no válido', 'danger')
+                return redirect(url_for('admin_add_user'))
+            
+            # Verificar si el usuario ya existe
+            existing_role = permissions_manager.get_user_role(email)
+            if existing_role:
+                flash(f'El usuario {email} ya existe con rol {existing_role}', 'warning')
+                return redirect(url_for('admin_users'))
+            
+            # Crear usuario
+            admin_email = session.get('username')
+            success = permissions_manager.add_user(email, role, created_by=admin_email)
+            
+            if success:
+                # Registrar en audit log
+                audit_logger.log_user_created(
+                    admin_email=admin_email,
+                    new_user_email=email,
+                    role=role,
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent')
+                )
+                
+                flash(f'Usuario {email} creado exitosamente con rol {role}', 'success')
+                logger.info(f"Usuario {email} creado por {admin_email} con rol {role}")
+            else:
+                flash('Error al crear usuario', 'danger')
+            
+            return redirect(url_for('admin_users'))
+            
+        except Exception as e:
+            logger.error(f"Error al crear usuario: {e}", exc_info=True)
+            flash('Error al crear usuario', 'danger')
+            return redirect(url_for('admin_add_user'))
+    
+    # GET: Mostrar formulario
+    roles = permissions_manager.get_all_roles()
+    return render_template('admin/user_add.html', roles=roles)
+
+@app.route('/admin/users/edit/<email>', methods=['GET', 'POST'])
+@require_admin_full
+def admin_edit_user(email):
+    """
+    Formulario para editar rol de usuario existente.
+    GET: Muestra formulario con datos actuales
+    POST: Procesa actualización
+    """
+    # Prevenir que admin edite su propio rol
+    current_user = session.get('username')
+    if email.lower() == current_user.lower():
+        flash('No puedes editar tu propio rol', 'warning')
+        return redirect(url_for('admin_users'))
+    
+    if request.method == 'POST':
+        try:
+            new_role = request.form.get('role', '').strip()
+            
+            if not new_role:
+                flash('Rol es requerido', 'danger')
+                return redirect(url_for('admin_edit_user', email=email))
+            
+            # Validar que el rol exista
+            if new_role not in permissions_manager.ROLE_PERMISSIONS:
+                flash('Rol no válido', 'danger')
+                return redirect(url_for('admin_edit_user', email=email))
+            
+            # Obtener rol actual
+            old_role = permissions_manager.get_user_role(email)
+            if not old_role:
+                flash(f'Usuario {email} no encontrado', 'danger')
+                return redirect(url_for('admin_users'))
+            
+            # No actualizar si es el mismo rol
+            if old_role == new_role:
+                flash('El usuario ya tiene ese rol', 'info')
+                return redirect(url_for('admin_users'))
+            
+            # Actualizar rol
+            success = permissions_manager.update_user_role(email, new_role)
+            
+            if success:
+                # Registrar en audit log
+                audit_logger.log_user_updated(
+                    admin_email=current_user,
+                    user_email=email,
+                    old_role=old_role,
+                    new_role=new_role,
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent')
+                )
+                
+                flash(f'Rol de {email} actualizado: {old_role} → {new_role}', 'success')
+                logger.info(f"Rol de {email} actualizado por {current_user}: {old_role} → {new_role}")
+            else:
+                flash('Error al actualizar rol', 'danger')
+            
+            return redirect(url_for('admin_users'))
+            
+        except Exception as e:
+            logger.error(f"Error al actualizar usuario: {e}", exc_info=True)
+            flash('Error al actualizar usuario', 'danger')
+            return redirect(url_for('admin_users'))
+    
+    # GET: Mostrar formulario
+    user_details = permissions_manager.get_user_details(email)
+    if not user_details:
+        flash(f'Usuario {email} no encontrado', 'danger')
+        return redirect(url_for('admin_users'))
+    
+    roles = permissions_manager.get_all_roles()
+    return render_template('admin/user_edit.html', user=user_details, roles=roles)
+
+@app.route('/admin/users/delete/<email>', methods=['POST'])
+@require_admin_full
+def admin_delete_user(email):
+    """
+    Elimina (desactiva) un usuario.
+    Solo POST para prevenir eliminación accidental.
+    """
+    # Prevenir que admin se auto-elimine
+    current_user = session.get('username')
+    if email.lower() == current_user.lower():
+        return jsonify({'success': False, 'message': 'No puedes eliminar tu propia cuenta'}), 403
+    
+    try:
+        # Verificar que el usuario existe
+        user_role = permissions_manager.get_user_role(email)
+        if not user_role:
+            return jsonify({'success': False, 'message': f'Usuario {email} no encontrado'}), 404
+        
+        # Eliminar usuario (soft delete por defecto)
+        soft_delete = request.form.get('soft_delete', 'true').lower() == 'true'
+        success = permissions_manager.delete_user(email, soft_delete=soft_delete)
+        
+        if success:
+            # Registrar en audit log
+            audit_logger.log_user_deleted(
+                admin_email=current_user,
+                user_email=email,
+                soft_delete=soft_delete,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent')
+            )
+            
+            action = 'desactivado' if soft_delete else 'eliminado'
+            flash(f'Usuario {email} {action} exitosamente', 'success')
+            logger.info(f"Usuario {email} {action} por {current_user}")
+            return jsonify({'success': True, 'message': f'Usuario {action} exitosamente'})
+        else:
+            return jsonify({'success': False, 'message': 'Error al eliminar usuario'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error al eliminar usuario: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': 'Error al eliminar usuario'}), 500
+
+@app.route('/admin/users/reactivate/<email>', methods=['POST'])
+@require_admin_full
+def admin_reactivate_user(email):
+    """Reactiva un usuario previamente desactivado"""
+    current_user = session.get('username')
+    
+    try:
+        success = permissions_manager.reactivate_user(email)
+        
+        if success:
+            # Registrar en audit log
+            audit_logger.log_user_reactivated(
+                admin_email=current_user,
+                user_email=email,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent')
+            )
+            
+            flash(f'Usuario {email} reactivado exitosamente', 'success')
+            logger.info(f"Usuario {email} reactivado por {current_user}")
+            return jsonify({'success': True, 'message': 'Usuario reactivado exitosamente'})
+        else:
+            return jsonify({'success': False, 'message': 'Error al reactivar usuario'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error al reactivar usuario: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': 'Error al reactivar usuario'}), 500
+
+@app.route('/admin/audit-log')
+@require_admin_full
+def admin_audit_log():
+    """
+    Dashboard de auditoría con historial completo de cambios.
+    Solo accesible por admin_full.
+    """
+    try:
+        # Parámetros de filtrado
+        days = request.args.get('days', 30, type=int)
+        action = request.args.get('action', '')
+        admin_email = request.args.get('admin', '')
+        
+        # Obtener logs filtrados
+        logs = audit_logger.get_filtered_logs(days=days, action=action, admin_email=admin_email)
+        
+        # Estadísticas
+        stats = audit_logger.get_statistics()
+        
+        return render_template('admin/audit_log.html',
+                             logs=logs,
+                             stats=stats,
+                             days=days,
+                             current_action=action,
+                             current_admin=admin_email)
+    except Exception as e:
+        logger.error(f"Error en ruta /admin/audit-log: {e}", exc_info=True)
+        flash('Error al cargar historial de auditoría', 'danger')
+        return redirect(url_for('admin_users'))
 
 # --- Funciones Auxiliares ---
 

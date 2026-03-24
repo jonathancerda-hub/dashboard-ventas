@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    .admin-container {
+        padding: 2rem;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .form-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .user-info-header {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .role-change-preview {
+        background: #fff3cd;
+        padding: 1rem;
+        border-radius: 4px;
+        border-left: 4px solid #ffc107;
+        margin-top: 1rem;
+    }
+    
+    .permissions-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .permissions-column h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .permissions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    
+    .form-actions {
+        margin-top: 2rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="mb-3">
+        <a href="{{ url_for('admin_users') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Lista de Usuarios
+        </a>
+    </div>
+    
+    <div class="form-container">
+        <h2><i class="bi bi-pencil-square"></i> Editar Usuario</h2>
+        <p class="text-muted">Modifica el rol de acceso del usuario</p>
+        
+        <hr>
+        
+        <!-- Información del usuario -->
+        <div class="user-info-header">
+            <h5><i class="bi bi-person-circle"></i> {{ user.user_email }}</h5>
+            <p class="mb-0 text-muted">
+                <small>
+                    <i class="bi bi-calendar"></i> Creado: {{ user.created_at_formatted }}
+                    | <i class="bi bi-clock"></i> Actualizado: {{ user.updated_at_formatted }}
+                </small>
+            </p>
+            <p class="mb-0">
+                <span class="badge bg-{{ user.role_badge_class }}">{{ user.role_display_name }}</span>
+            </p>
+        </div>
+        
+        <form method="POST" action="{{ url_for('admin_edit_user', email=user.user_email) }}" id="editUserForm">
+            <!-- Rol -->
+            <div class="mb-3">
+                <label for="role" class="form-label">Nuevo Rol de Acceso *</label>
+                <select class="form-select" id="role" name="role" required>
+                    {% for role in roles %}
+                    <option value="{{ role.key }}" 
+                            {% if role.key == user.role %}selected{% endif %}
+                            data-permissions='{{ role.permissions | tojson }}'
+                            data-description="{{ role.display_name }}">
+                        {{ role.display_name }} ({{ role.permission_count }} permisos)
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">
+                    Selecciona el nuevo nivel de acceso para el usuario
+                </small>
+            </div>
+            
+            <!-- Vista previa de cambios -->
+            <div id="changePreview" style="display: none;">
+                <div class="role-change-preview">
+                    <h6><i class="bi bi-arrow-repeat"></i> Vista previa del cambio:</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary" id="oldRoleBadge"></span>
+                        <i class="bi bi-arrow-right"></i>
+                        <span class="badge bg-primary" id="newRoleBadge"></span>
+                    </div>
+                    
+                    <div class="permissions-comparison">
+                        <div class="permissions-column">
+                            <h6 class="text-muted">Permisos actuales:</h6>
+                            <div id="oldPermissions" class="permissions-list"></div>
+                        </div>
+                        <div class="permissions-column">
+                            <h6 class="text-primary">Nuevos permisos:</h6>
+                            <div id="newPermissions" class="permissions-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Descripción de roles -->
+            <div class="alert alert-info mt-3">
+                <h6><i class="bi bi-lightbulb"></i> Descripción de Roles:</h6>
+                <ul class="mb-0 small">
+                    <li><strong>Administrador Total:</strong> Acceso completo al sistema</li>
+                    <li><strong>Administrador con Exportación:</strong> Dashboard, analytics y exportación</li>
+                    <li><strong>Visualizador de Analytics:</strong> Dashboard y analytics, sin exportar</li>
+                    <li><strong>Usuario Básico:</strong> Solo dashboard de ventas</li>
+                </ul>
+            </div>
+            
+            <!-- Alert si el rol actual es el mismo -->
+            <div id="sameRoleAlert" class="alert alert-warning" style="display: none;">
+                <i class="bi bi-exclamation-triangle"></i> 
+                El usuario ya tiene este rol. Selecciona un rol diferente para actualizar.
+            </div>
+            
+            <!-- Botones de acción -->
+            <div class="form-actions">
+                <a href="{{ url_for('admin_users') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-check-circle"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    const currentRole = '{{ user.role }}';
+    const currentPermissions = {{ user.permissions | tojson }};
+    
+    const permissionTranslations = {
+        'view_dashboard': '<i class="bi bi-speedometer2"></i> Ver Dashboard',
+        'view_analytics': '<i class="bi bi-graph-up"></i> Ver Analytics',
+        'edit_targets': '<i class="bi bi-pencil"></i> Editar Metas',
+        'export_data': '<i class="bi bi-download"></i> Exportar Datos',
+        'manage_users': '<i class="bi bi-people"></i> Gestionar Usuarios'
+    };
+    
+    // Función para renderizar permisos
+    function renderPermissions(permissions, containerId, badgeClass) {
+        const container = $(`#${containerId}`);
+        container.empty();
+        
+        permissions.forEach(perm => {
+            const permText = permissionTranslations[perm] || perm;
+            container.append(
+                `<span class="badge ${badgeClass}">${permText}</span>`
+            );
+        });
+    }
+    
+    // Renderizar permisos actuales inicialmente
+    renderPermissions(currentPermissions, 'oldPermissions', 'bg-secondary');
+    
+    // Detectar cambio de rol
+    $('#role').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const newRole = $(this).val();
+        const newPermissions = selectedOption.data('permissions');
+        const newDescription = selectedOption.data('description');
+        
+        if (newRole === currentRole) {
+            // Mismo rol - mostrar alerta
+            $('#changePreview').slideUp();
+            $('#sameRoleAlert').slideDown();
+            $('#submitBtn').prop('disabled', true);
+        } else {
+            // Rol diferente - mostrar preview
+            $('#sameRoleAlert').slideUp();
+            $('#changePreview').slideDown();
+            $('#submitBtn').prop('disabled', false);
+            
+            // Actualizar badges
+            $('#oldRoleBadge').text('{{ user.role_display_name }}');
+            $('#newRoleBadge').text(newDescription);
+            
+            // Renderizar nuevos permisos
+            renderPermissions(newPermissions, 'newPermissions', 'bg-success');
+        }
+    });
+    
+    // Validación del formulario
+    $('#editUserForm').on('submit', function(e) {
+        const newRole = $('#role').val();
+        
+        if (newRole === currentRole) {
+            e.preventDefault();
+            alert('El usuario ya tiene este rol. Selecciona un rol diferente.');
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

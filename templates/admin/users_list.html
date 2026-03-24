@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+<!-- SweetAlert2 para confirmaciones -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<style>
+    .admin-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .admin-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .admin-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #007bff;
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        margin: 0;
+        color: #007bff;
+    }
+    
+    .stat-card p {
+        margin: 0.5rem 0 0 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .table-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .badge-role {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .permissions-list {
+        font-size: 0.85rem;
+        color: #666;
+    }
+    
+    .recent-activity {
+        margin-top: 2rem;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .activity-item {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+    
+    .activity-timestamp {
+        font-size: 0.85rem;
+        color: #999;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <!-- Header -->
+    <div class="admin-header">
+        <div>
+            <h1><i class="bi bi-people-fill"></i> Administración de Usuarios</h1>
+            <p class="text-muted">Gestión de permisos y roles de acceso al sistema</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin_add_user') }}" class="btn btn-primary">
+                <i class="bi bi-person-plus-fill"></i> Agregar Usuario
+            </a>
+            <a href="{{ url_for('admin_audit_log') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history"></i> Historial de Cambios
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="admin-stats">
+        <div class="stat-card">
+            <h3>{{ total_users }}</h3>
+            <p><i class="bi bi-people"></i> Total Usuarios Activos</p>
+        </div>
+        <div class="stat-card" style="border-left-color: #28a745;">
+            <h3 style="color: #28a745;">{{ total_admins }}</h3>
+            <p><i class="bi bi-shield-check"></i> Administradores</p>
+        </div>
+        <div class="stat-card" style="border-left-color: #ffc107;">
+            <h3 style="color: #ffc107;">{{ changes_last_week }}</h3>
+            <p><i class="bi bi-pencil-square"></i> Cambios esta semana</p>
+        </div>
+    </div>
+    
+    <!-- Tabla de Usuarios -->
+    <div class="table-container">
+        <h3 class="mb-3">Lista de Usuarios</h3>
+        
+        <!-- Filtros -->
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label for="roleFilter">Filtrar por Rol:</label>
+                <select id="roleFilter" class="form-select">
+                    <option value="">Todos los roles</option>
+                    {% for role in roles %}
+                    <option value="{{ role.key }}">{{ role.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table id="usersTable" class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Permisos</th>
+                        <th>Creado Por</th>
+                        <th>Fecha Creación</th>
+                        <th>Última Actualización</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.user_email }}</strong>
+                            {% if user.user_email == current_user %}
+                            <span class="badge bg-info">Tú</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge badge-role bg-{{ user.role_badge_class }}">
+                                {{ user.role_display_name }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="permissions-list">
+                                {% for perm in user.permissions %}
+                                <span class="badge bg-light text-dark">{{ perm }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <small>{{ user.created_by or 'SYSTEM' }}</small>
+                        </td>
+                        <td>
+                            <small>{{ user.created_at_formatted }}</small>
+                        </td>
+                        <td>
+                            <small>{{ user.updated_at_formatted }}</small>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                {% if user.user_email != current_user %}
+                                <a href="{{ url_for('admin_edit_user', email=user.user_email) }}" 
+                                   class="btn btn-sm btn-outline-primary" 
+                                   title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button onclick="deleteUser('{{ user.user_email }}')" 
+                                        class="btn btn-sm btn-outline-danger" 
+                                        title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% else %}
+                                <span class="text-muted small">No editable</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Actividad Reciente -->
+    <div class="recent-activity">
+        <h3 class="mb-3"><i class="bi bi-activity"></i> Actividad Reciente</h3>
+        {% if recent_logs %}
+            {% for log in recent_logs %}
+            <div class="activity-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="badge bg-{{ log.action_class }}">{{ log.action_display }}</span>
+                        <strong>{{ log.admin_email }}</strong>
+                        {% if log.action == 'CREATE' %}
+                            creó el usuario <strong>{{ log.target_user_email }}</strong> con rol <span class="badge bg-secondary">{{ log.new_value }}</span>
+                        {% elif log.action == 'UPDATE' %}
+                            actualizó el rol de <strong>{{ log.target_user_email }}</strong>: 
+                            <span class="badge bg-secondary">{{ log.old_value }}</span> → 
+                            <span class="badge bg-primary">{{ log.new_value }}</span>
+                        {% elif log.action == 'DELETE' or log.action == 'DEACTIVATE' %}
+                            eliminó el usuario <strong>{{ log.target_user_email }}</strong>
+                        {% elif log.action == 'ACTIVATE' %}
+                            reactivó el usuario <strong>{{ log.target_user_email }}</strong>
+                        {% endif %}
+                    </div>
+                    <div class="activity-timestamp">
+                        {{ log.timestamp }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No hay actividad reciente</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    var table = $('#usersTable').DataTable({
+        responsive: true,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        },
+        order: [[4, 'desc']], // Ordenar por fecha de creación
+        pageLength: 25
+    });
+    
+    // Filtro por rol
+    $('#roleFilter').on('change', function() {
+        var role = $(this).val();
+        table.column(1).search(role).draw();
+    });
+});
+
+// Función para eliminar usuario
+function deleteUser(email) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        html: `¿Deseas eliminar el usuario <strong>${email}</strong>?<br><small class="text-muted">Esta acción no se puede deshacer.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Enviar petición DELETE
+            fetch(`/admin/users/delete/${encodeURIComponent(email)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'soft_delete=true'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Eliminado', data.message, 'success').then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'Error al eliminar usuario', 'error');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+</script>
+{% endblock %}
