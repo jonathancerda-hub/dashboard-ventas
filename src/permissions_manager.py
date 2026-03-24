@@ -1,23 +1,27 @@
 """
-permissions_manager.py - Sistema centralizado de permisos de usuario
+permissions_manager.py - Sistema centralizado de permisos de usuario (SUPABASE VERSION)
 
-Este módulo gestiona roles y permisos de usuarios del dashboard,
-reemplazando las listas hardcodeadas en app.py
+Este módulo gestiona roles y permisos de usuarios del dashboard usando Supabase,
+compatible con producción en Render.com
 """
 
-import sqlite3
-from contextlib import contextmanager
+import os
+from typing import List, Dict, Optional
+from datetime import datetime
+from dotenv import load_dotenv
+from supabase import create_client, Client
 from src.logging_config import get_logger
 
+load_dotenv()
 logger = get_logger(__name__)
 
 
 class PermissionsManager:
     """
-    Gestor de permisos de usuario basado en roles.
+    Gestor de permisos de usuario basado en roles usando Supabase.
     
     Roles disponibles:
-    - admin_full: Acceso total (exports, analytics, metas)
+    - admin_full: Acceso total (exports, analytics, metas, gestión de usuarios)
     - admin_export: Puede exportar datos
     - analytics_viewer: Acceso a página de analytics
     - user_basic: Solo visualización de dashboards
@@ -25,95 +29,83 @@ class PermissionsManager:
     
     # Definición de permisos por rol
     ROLE_PERMISSIONS = {
-        'admin_full': ['view_dashboard', 'view_analytics', 'edit_targets', 'export_data'],
-        'admin_export': ['view_dashboard', 'export_data'],
+        'admin_full': ['view_dashboard', 'view_analytics', 'edit_targets', 'export_data', 'manage_users'],
+        'admin_export': ['view_dashboard', 'view_analytics', 'export_data'],
         'analytics_viewer': ['view_dashboard', 'view_analytics'],
         'user_basic': ['view_dashboard']
     }
     
-    def __init__(self, db_path='permissions.db'):
-        """Inicializa el gestor y crea tablas si no existen"""
-        self.db_path = db_path
-        self._init_database()
-        logger.info(f"PermissionsManager inicializado con DB: {db_path}")
+    # Nombres de display para UI
+    ROLE_DISPLAY_NAMES = {
+        'admin_full': 'Administrador Total',
+        'admin_export': 'Administrador con Exportación',
+        'analytics_viewer': 'Visualizador de Analytics',
+        'user_basic': 'Usuario Básico'
+    }
     
-    @contextmanager
-    def get_connection(self):
-        """Context manager para conexiones a la DB"""
-        conn = None
+    def __init__(self):
+        """Inicializa el gestor y conecta con Supabase"""
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_KEY')
+        
+        if not supabase_url or not supabase_key:
+            logger.error("❌ Credenciales de Supabase no configuradas en .env")
+            raise ValueError("SUPABASE_URL y SUPABASE_KEY son requeridas")
+        
         try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            yield conn
-            conn.commit()
+            self.supabase: Client = create_client(supabase_url, supabase_key)
+            self.enabled = True
+            logger.info("✅ PermissionsManager inicializado con Supabase")
         except Exception as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"Error en conexión DB permisos: {e}", exc_info=True)
+            logger.error(f"❌ Error al conectar con Supabase: {e}", exc_info=True)
             raise
-        finally:
-            if conn:
-                conn.close()
     
-    def _init_database(self):
-        """Crea las tablas de permisos si no existen"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Tabla de permisos de usuario
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS user_permissions (
-                        user_email TEXT PRIMARY KEY,
-                        role TEXT NOT NULL CHECK(role IN ('admin_full', 'admin_export', 'analytics_viewer', 'user_basic')),
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                
-                # Índice para búsquedas rápidas
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_user_email 
-                    ON user_permissions(user_email)
-                """)
-                
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_role
-                    ON user_permissions(role)
-                """)
-                
-                logger.info("Tablas de permisos inicializadas correctamente")
-                
-        except Exception as e:
-            logger.error(f"Error al inicializar DB de permisos: {e}", exc_info=True)
-    
-    def add_user(self, user_email, role='user_basic'):
+    def has_permission(self, user_email: str, permission: str) -> bool:
         """
-        Agrega un usuario con un rol específico.
+        Verifica si un usuario tiene un permiso específico.
         
         Args:
             user_email: Email del usuario
-            role: Rol a asignar (default: user_basic)
+            permission: Permiso a verificar (ej: 'view_analytics')
         
         Returns:
-            bool: True si se agregó exitosamente
+            bool: True si el usuario tiene el permiso
         """
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR REPLACE INTO user_permissions (user_email, role, updated_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
-                """, (user_email.lower(), role))
-                
-                logger.info(f"Usuario agregado: {user_email} con rol {role}")
-                return True
-                
+            role = self.get_user_role(user_email)
+            if not role:
+                logger.warning(f"Usuario sin rol: {user_email}")
+                return False
+            
+            permissions = self.ROLE_PERMISSIONS.get(role, [])
+            has_perm = permission in permissions
+            
+            logger.debug(f"Permiso '{permission}' para {user_email} ({role}): {has_perm}")
+            return has_perm
         except Exception as e:
-            logger.error(f"Error al agregar usuario: {e}", exc_info=True)
+            logger.error(f"Error verificando permiso: {e}", exc_info=True)
             return False
     
-    def get_user_role(self, user_email):
+    def is_admin(self, user_email: str) -> bool:
+        """
+        Verifica si un usuario tiene rol de administrador total.
+        
+        Args:
+            user_email: Email del usuario
+        
+        Returns:
+            bool: True si es admin_full
+        """
+        try:
+            role = self.get_user_role(user_email)
+            is_adm = role == 'admin_full'
+            logger.debug(f"¿{user_email} es admin?: {is_adm}")
+            return is_adm
+        except Exception as e:
+            logger.error(f"Error verificando admin: {e}", exc_info=True)
+            return False
+    
+    def get_user_role(self, user_email: str) -> Optional[str]:
         """
         Obtiene el rol de un usuario.
         
@@ -121,214 +113,367 @@ class PermissionsManager:
             user_email: Email del usuario
         
         Returns:
-            str: Rol del usuario o 'user_basic' por defecto
+            str: Nombre del rol o None si no existe
         """
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT role FROM user_permissions 
-                    WHERE user_email = ?
-                """, (user_email.lower(),))
-                
-                result = cursor.fetchone()
-                if result:
-                    return result['role']
-                else:
-                    logger.warning(f"Usuario {user_email} no encontrado en DB, usando rol por defecto")
-                    return 'user_basic'
-                    
+            response = self.supabase.table('user_permissions')\
+                .select('role, is_active')\
+                .eq('user_email', user_email.lower())\
+                .eq('is_active', True)\
+                .single()\
+                .execute()
+            
+            if response.data:
+                role = response.data['role']
+                logger.debug(f"Rol de {user_email}: {role}")
+                return role
+            
+            logger.debug(f"Usuario no encontrado: {user_email}")
+            return None
         except Exception as e:
-            logger.error(f"Error al obtener rol de usuario: {e}", exc_info=True)
-            return 'user_basic'
+            logger.error(f"Error obteniendo rol de {user_email}: {e}", exc_info=True)
+            return None
     
-    def has_permission(self, user_email, permission):
+    def add_user(self, user_email: str, role: str = 'user_basic', created_by: str = 'SYSTEM') -> bool:
         """
-        Verifica si un usuario tiene un permiso específico.
+        Agrega un usuario con un rol específico.
         
         Args:
             user_email: Email del usuario
-            permission: Permiso a verificar (ej: 'export', 'analytics')
+            role: Rol a asignar (default: user_basic)
+            created_by: Email del admin que crea el usuario
         
         Returns:
-            bool: True si el usuario tiene el permiso
+            bool: True si se agregó exitosamente
+        """
+        if role not in self.ROLE_PERMISSIONS:
+            logger.error(f"Rol inválido: {role}")
+            return False
         
-        Example:
-            >>> permissions_manager.has_permission('user@example.com', 'export')
-            True
-        """
-        role = self.get_user_role(user_email)
-        permissions = self.ROLE_PERMISSIONS.get(role, [])
-        return permission in permissions
+        try:
+            data = {
+                'user_email': user_email.lower(),
+                'role': role,
+                'created_by': created_by,
+                'is_active': True
+            }
+            
+            response = self.supabase.table('user_permissions')\
+                .insert(data)\
+                .execute()
+            
+            if response.data:
+                logger.info(f"✅ Usuario agregado: {user_email} con rol {role}")
+                return True
+            
+            logger.error(f"No se pudo agregar usuario: {user_email}")
+            return False
+        except Exception as e:
+            logger.error(f"Error agregando usuario {user_email}: {e}", exc_info=True)
+            return False
     
-    def is_admin(self, user_email):
+    def update_user_role(self, user_email: str, new_role: str) -> bool:
         """
-        Verifica si un usuario es administrador (admin_full o admin_export).
+        Actualiza el rol de un usuario existente.
         
         Args:
             user_email: Email del usuario
+            new_role: Nuevo rol a asignar
         
         Returns:
-            bool: True si es administrador
+            bool: True si se actualizó correctamente
         """
-        role = self.get_user_role(user_email)
-        return role in ['admin_full', 'admin_export']
-    
-    def get_all_users(self):
-        """
-        Obtiene todos los usuarios con sus roles.
+        if new_role not in self.ROLE_PERMISSIONS:
+            logger.error(f"Rol inválido: {new_role}")
+            return False
         
-        Returns:
-            list: Lista de dicts con user_email, role, created_at
-        """
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT user_email, role, created_at, updated_at
-                    FROM user_permissions
-                    ORDER BY role, user_email
-                """)
-                
-                results = cursor.fetchall()
-                return [dict(row) for row in results]
-                
+            response = self.supabase.table('user_permissions')\
+                .update({'role': new_role})\
+                .eq('user_email', user_email.lower())\
+                .execute()
+            
+            if response.data:
+                logger.info(f"✅ Rol actualizado: {user_email} → {new_role}")
+                return True
+            
+            logger.warning(f"Usuario no encontrado para actualizar: {user_email}")
+            return False
         except Exception as e:
-            logger.error(f"Error al obtener usuarios: {e}", exc_info=True)
-            return []
+            logger.error(f"Error actualizando rol de {user_email}: {e}", exc_info=True)
+            return False
     
-    def get_users_by_role(self, role):
+    def delete_user(self, user_email: str, soft_delete: bool = True) -> bool:
         """
-        Obtiene todos los usuarios con un rol específico.
-        
-        Args:
-            role: Rol a filtrar
-        
-        Returns:
-            list: Lista de emails
-        """
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT user_email FROM user_permissions 
-                    WHERE role = ?
-                    ORDER BY user_email
-                """, (role,))
-                
-                results = cursor.fetchall()
-                return [row['user_email'] for row in results]
-                
-        except Exception as e:
-            logger.error(f"Error al obtener usuarios por rol: {e}", exc_info=True)
-            return []
-    
-    def remove_user(self, user_email):
-        """
-        Elimina un usuario del sistema de permisos.
+        Elimina un usuario del sistema (soft o hard delete).
         
         Args:
             user_email: Email del usuario a eliminar
+            soft_delete: Si True, solo marca como inactivo. Si False, elimina físicamente.
         
         Returns:
-            bool: True si se eliminó exitosamente
+            bool: True si se eliminó correctamente
         """
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    DELETE FROM user_permissions WHERE user_email = ?
-                """, (user_email.lower(),))
-                
-                if cursor.rowcount > 0:
-                    logger.info(f"Usuario eliminado: {user_email}")
-                    return True
-                else:
-                    logger.warning(f"Usuario no encontrado para eliminar: {user_email}")
-                    return False
-                    
+            if soft_delete:
+                # Soft delete: marcar como inactivo
+                response = self.supabase.table('user_permissions')\
+                    .update({'is_active': False})\
+                    .eq('user_email', user_email.lower())\
+                    .execute()
+            else:
+                # Hard delete: eliminar físicamente
+                response = self.supabase.table('user_permissions')\
+                    .delete()\
+                    .eq('user_email', user_email.lower())\
+                    .execute()
+            
+            if response.data:
+                delete_type = "desactivado" if soft_delete else "eliminado"
+                logger.info(f"✅ Usuario {delete_type}: {user_email}")
+                return True
+            
+            logger.warning(f"Usuario no encontrado para eliminar: {user_email}")
+            return False
         except Exception as e:
-            logger.error(f"Error al eliminar usuario: {e}", exc_info=True)
+            logger.error(f"Error eliminando usuario {user_email}: {e}", exc_info=True)
             return False
     
-    def migrate_from_lists(self, admin_full_list, admin_export_list, analytics_list):
+    def get_all_users(self, include_inactive: bool = False) -> List[Dict]:
         """
-        Migra usuarios desde listas hardcodeadas al sistema de permisos.
+        Obtiene lista de todos los usuarios con sus detalles.
         
         Args:
-            admin_full_list: Lista de emails con permisos completos
-            admin_export_list: Lista de emails con permisos de exportación
-            analytics_list: Lista de emails con acceso a analytics
+            include_inactive: Si True, incluye usuarios inactivos
         
         Returns:
-            dict: Resumen de la migración
+            List[Dict]: Lista de usuarios con email, role, permisos, fechas
         """
-        migrated = {'admin_full': 0, 'admin_export': 0, 'analytics_viewer': 0, 'errors': 0}
-        
         try:
-            # Migrar admin_full
-            for email in admin_full_list:
-                if self.add_user(email, 'admin_full'):
-                    migrated['admin_full'] += 1
-                else:
-                    migrated['errors'] += 1
+            query = self.supabase.table('user_permissions')\
+                .select('*')\
+                .order('updated_at', desc=True)
             
-            # Migrar admin_export (solo si no están en admin_full)
-            for email in admin_export_list:
-                if email not in admin_full_list:
-                    if self.add_user(email, 'admin_export'):
-                        migrated['admin_export'] += 1
-                    else:
-                        migrated['errors'] += 1
+            if not include_inactive:
+                query = query.eq('is_active', True)
             
-            # Migrar analytics_viewer (solo si no son admins)
-            for email in analytics_list:
-                if email not in admin_full_list and email not in admin_export_list:
-                    if self.add_user(email, 'analytics_viewer'):
-                        migrated['analytics_viewer'] += 1
-                    else:
-                        migrated['errors'] += 1
+            response = query.execute()
             
-            logger.info(f"Migración completada: {migrated}")
-            return migrated
+            users = []
+            for row in response.data:
+                users.append({
+                    'email': row['user_email'],
+                    'role': row['role'],
+                    'role_display': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),
+                    'permissions': self.ROLE_PERMISSIONS.get(row['role'], []),
+                    'created_at': row['created_at'],
+                    'updated_at': row['updated_at'],
+                    'created_by': row.get('created_by', 'N/A'),
+                    'is_active': row['is_active'],
+                    'role_class': self._get_role_badge_class(row['role'])
+                })
             
+            logger.debug(f"Obtenidos {len(users)} usuarios")
+            return users
         except Exception as e:
-            logger.error(f"Error en migración de permisos: {e}", exc_info=True)
-            return migrated
-
-
-# Script de migración (ejecutar una vez)
-if __name__ == '__main__':
-    print("=== Migración de Permisos ===\n")
+            logger.error(f"Error obteniendo usuarios: {e}", exc_info=True)
+            return []
     
-    # Listas actuales del app.py (copiar aquí los valores actuales)
-    ADMIN_FULL = [
-        "jonathan.cerda@agrovetmarket.com",
-        "janet.hueza@agrovetmarket.com",
-        "juan.portal@agrovetmarket.com",
-    ]
+    def search_users(self, query: str, include_inactive: bool = False) -> List[Dict]:
+        """
+        Busca usuarios por email usando búsqueda tipo LIKE.
+        
+        Args:
+            query: Texto a buscar en el email
+            include_inactive: Si True, incluye usuarios inactivos
+        
+        Returns:
+            List[Dict]: Usuarios que coinciden con la búsqueda
+        """
+        try:
+            supabase_query = self.supabase.table('user_permissions')\
+                .select('*')\
+                .ilike('user_email', f'%{query}%')\
+                .order('user_email')
+            
+            if not include_inactive:
+                supabase_query = supabase_query.eq('is_active', True)
+            
+            response = supabase_query.execute()
+            
+            return [dict(row) for row in response.data]
+        except Exception as e:
+            logger.error(f"Error en búsqueda: {e}", exc_info=True)
+            return []
     
-    ADMIN_EXPORT = [
-        "miguel.hernandez@agrovetmarket.com",
-        "juana.lovaton@agrovetmarket.com",
-        "jimena.delrisco@agrovetmarket.com",
-    ]
+    def get_users_by_role(self, role: str, include_inactive: bool = False) -> List[Dict]:
+        """
+        Filtra usuarios por rol específico.
+        
+        Args:
+            role: Rol a filtrar
+            include_inactive: Si True, incluye usuarios inactivos
+        
+        Returns:
+            List[Dict]: Usuarios con el rol especificado
+        """
+        try:
+            query = self.supabase.table('user_permissions')\
+                .select('*')\
+                .eq('role', role)\
+                .order('user_email')
+            
+            if not include_inactive:
+                query = query.eq('is_active', True)
+            
+            response = query.execute()
+            
+            return [dict(row) for row in response.data]
+        except Exception as e:
+            logger.error(f"Error filtrando por rol: {e}", exc_info=True)
+            return []
     
-    ANALYTICS_VIEWERS = [
-        "ena.fernandez@agrovetmarket.com",
-    ]
+    def get_user_details(self, user_email: str) -> Optional[Dict]:
+        """
+        Obtiene detalles completos de un usuario.
+        
+        Args:
+            user_email: Email del usuario
+        
+        Returns:
+            Dict con todos los datos del usuario o None
+        """
+        try:
+            response = self.supabase.table('user_permissions')\
+                .select('*')\
+                .eq('user_email', user_email.lower())\
+                .single()\
+                .execute()
+            
+            if response.data:
+                row = response.data
+                return {
+                    'email': row['user_email'],
+                    'role': row['role'],
+                    'role_display': self.ROLE_DISPLAY_NAMES.get(row['role'], row['role']),
+                    'permissions': self.ROLE_PERMISSIONS.get(row['role'], []),
+                    'created_at': row['created_at'],
+                    'updated_at': row['updated_at'],
+                    'created_by': row.get('created_by', 'N/A'),
+                    'is_active': row['is_active']
+                }
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error obteniendo detalles de {user_email}: {e}", exc_info=True)
+            return None
     
-    # Crear manager y migrar
-    permissions_manager = PermissionsManager()
-    result = permissions_manager.migrate_from_lists(ADMIN_FULL, ADMIN_EXPORT, ANALYTICS_VIEWERS)
+    def count_users(self, active_only: bool = True) -> int:
+        """
+        Cuenta total de usuarios.
+        
+        Args:
+            active_only: Si True, solo cuenta usuarios activos
+        
+        Returns:
+            int: Número de usuarios
+        """
+        try:
+            query = self.supabase.table('user_permissions')\
+                .select('id', count='exact')
+            
+            if active_only:
+                query = query.eq('is_active', True)
+            
+            response = query.execute()
+            return response.count if response.count else 0
+        except Exception as e:
+            logger.error(f"Error contando usuarios: {e}", exc_info=True)
+            return 0
     
-    print(f"\n✅ Usuarios migrados:")
-    print(f"   - admin_full: {result['admin_full']}")
-    print(f"   - admin_export: {result['admin_export']}")
-    print(f"   - analytics_viewer: {result['analytics_viewer']}")
-    print(f"   - errores: {result['errors']}\n")
+    def count_admins(self, active_only: bool = True) -> int:
+        """
+        Cuenta total de administradores (admin_full).
+        
+        Args:
+            active_only: Si True, solo cuenta administradores activos
+        
+        Returns:
+            int: Número de administradores
+        """
+        try:
+            query = self.supabase.table('user_permissions')\
+                .select('id', count='exact')\
+                .eq('role', 'admin_full')
+            
+            if active_only:
+                query = query.eq('is_active', True)
+            
+            response = query.execute()
+            return response.count if response.count else 0
+        except Exception as e:
+            logger.error(f"Error contando admins: {e}", exc_info=True)
+            return 0
     
-    # Mostrar todos los usuarios
-    print("📋 Usuarios en el sistema:")
-    for user in permissions_manager.get_all_users():
-        print(f"   {user['user_email']}: {user['role']}")
+    def reactivate_user(self, user_email: str) -> bool:
+        """
+        Reactiva un usuario previamente desactivado.
+        
+        Args:
+            user_email: Email del usuario a reactivar
+        
+        Returns:
+            bool: True si se reactivó correctamente
+        """
+        try:
+            response = self.supabase.table('user_permissions')\
+                .update({'is_active': True})\
+                .eq('user_email', user_email.lower())\
+                .execute()
+            
+            if response.data:
+                logger.info(f"✅ Usuario reactivado: {user_email}")
+                return True
+            
+            logger.warning(f"Usuario no encontrado para reactivar: {user_email}")
+            return False
+        except Exception as e:
+            logger.error(f"Error reactivando usuario: {e}", exc_info=True)
+            return False
+    
+    @staticmethod
+    def _get_role_badge_class(role: str) -> str:
+        """
+        Retorna clase CSS para badge según rol (para UI).
+        
+        Args:
+            role: Nombre del rol
+        
+        Returns:
+            str: Clase CSS Bootstrap (danger, warning, info, secondary)
+        """
+        badge_classes = {
+            'admin_full': 'danger',
+            'admin_export': 'warning',
+            'analytics_viewer': 'info',
+            'user_basic': 'secondary'
+        }
+        return badge_classes.get(role, 'secondary')
+    
+    @staticmethod
+    def get_all_roles() -> List[Dict]:
+        """
+        Obtiene lista de todos los roles disponibles con sus permisos.
+        
+        Returns:
+            List[Dict]: Lista con información de cada rol
+        """
+        roles = []
+        for role_key, permissions in PermissionsManager.ROLE_PERMISSIONS.items():
+            roles.append({
+                'key': role_key,
+                'display_name': PermissionsManager.ROLE_DISPLAY_NAMES.get(role_key, role_key),
+                'permissions': permissions,
+                'permission_count': len(permissions)
+            })
+        return roles
