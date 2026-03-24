@@ -1,6 +1,6 @@
 ﻿# === Core Web Framework ===
-Flask==3.1.3  # Updated from 3.1.1 - fixes CVE-2026-27205
-Werkzeug==3.1.6  # Updated from 3.1.3 - fixes CVE-2025-66221, CVE-2026-21860, CVE-2026-27199
+Flask==3.1.3
+Werkzeug==3.1.6
 gunicorn==23.0.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2
@@ -9,22 +9,22 @@ blinker==1.9.0
 itsdangerous==2.2.0
 
 # === Authentication & Security ===
-Authlib==1.6.7  # Updated from 1.6.6 - fixes CVE-2026-28802
+Authlib==1.6.7
 cachetools==5.5.2
 
 # === HTTP & Network ===
 requests==2.32.5
-urllib3==2.6.3  # Updated from 2.5.0 - fixes CVE-2025-66418, CVE-2025-66471, CVE-2026-21441
+urllib3==2.6.3
 certifi==2025.8.3
 charset-normalizer==3.4.3
 idna==3.10
 
 # === Database ===
-psycopg2-binary==2.9.10  # Keep for stability - consider psycopg3 migration later
-supabase==2.14.0  # Supabase client for metas management
+psycopg2-binary==2.9.10
+supabase==2.14.0
 
 # === Data Processing ===
-pandas==2.2.3  # Keep 2.2.x for stability (3.0.1 has breaking changes)
+pandas==2.2.3
 numpy==2.3.2
 openpyxl==3.1.5
 
@@ -36,7 +36,11 @@ six==1.17.0
 packaging==25.0
 colorama==0.4.6
 et_xmlfile==2.0.0
-pillow==12.1.1  # Updated from 11.3.0 - fixes CVE-2026-25990
+pillow==12.1.1
 tzdata==2025.2
-pyasn1==0.6.2  # Dependency - fixes CVE-2026-23490
-⌊㴠㴽吠獥楴杮䐠灥湥敤据敩⁳㴽਽祰整瑳㴽⸹⸰ਲ祰整瑳挭癯㴽⸷⸰ਰ祰整瑳洭捯㵫㌽ㄮ⸵റ
+pyasn1==0.6.2
+
+# === Testing Dependencies ===
+pytest==9.0.2
+pytest-cov==7.0.0
+pytest-mock==3.15.0
