@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, jsonify
 from src.odoo_manager import OdooManager
 from src.supabase_manager import SupabaseManager
-from src.analytics_db import AnalyticsDB
+from src.analytics_supabase import AnalyticsSupabase
 from src.permissions_manager import PermissionsManager
 from src.audit_logger import AuditLogger
 from src.utils import get_meses_del_año, normalizar_linea_comercial, limpiar_nombre_producto, limpiar_nombre_atrevia
@@ -156,8 +156,8 @@ except Exception as e:
 # Inicializar Supabase Manager para metas de 2026
 supabase_manager = SupabaseManager()
 
-# Inicializar sistema de analytics
-analytics_db = AnalyticsDB()
+# Inicializar sistema de analytics (Supabase)
+analytics_db = AnalyticsSupabase()
 
 # Inicializar sistema de permisos
 permissions_manager = PermissionsManager()
