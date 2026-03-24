@@ -370,3 +370,35 @@ class AnalyticsSupabase:
         except Exception as e:
             logger.error(f"❌ Error obteniendo visitas por hora: {e}", exc_info=True)
             return []
+    
+    def get_recent_visits(self, limit: int = 50) -> List[Dict]:
+        """
+        Obtiene las visitas más recientes.
+        
+        Args:
+            limit: Número máximo de visitas a retornar
+        
+        Returns:
+            List[Dict]: Lista de visitas con campos: user_email, user_name, page_url, 
+                        page_title, visit_timestamp, ip_address
+        """
+        if not self.enabled:
+            return []
+        
+        try:
+            response = self.supabase.table(self.TABLE_NAME)\
+                .select('user_email, user_name, page_url, page_title, visit_timestamp, ip_address')\
+                .neq('user_email', 'jonathan.cerda@agrovetmarket.com')\
+                .order('visit_timestamp', desc=True)\
+                .limit(limit)\
+                .execute()
+            
+            if response.data:
+                logger.debug(f"📊 {len(response.data)} visitas recientes obtenidas")
+                return response.data
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"❌ Error obteniendo visitas recientes: {e}", exc_info=True)
+            return []
