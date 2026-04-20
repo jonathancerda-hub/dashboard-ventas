@@ -1,18 +1,18 @@
-# Project Architecture Blueprint
-## Dashboard de Ventas Farmacéuticas - Comprehensive Architecture Documentation
+# Plano de Arquitectura del Proyecto (Project Architecture Blueprint)
+## Dashboard de Ventas Farmacéuticas - Documentación Integral de Arquitectura (Comprehensive Architecture Documentation)
 
-**Generated:** 17 de marzo de 2026  
-**Project:** Dashboard de Ventas Farmacéuticas  
-**Version:** 2.0  
-**Technology Stack:** Python/Flask, Odoo ERP, Supabase, PostgreSQL/SQLite
+**Generado (Generated):** 17 de marzo de 2026  
+**Proyecto (Project):** Dashboard de Ventas Farmacéuticas  
+**Versión (Version):** 2.0  
+**Stack Tecnológico (Technology Stack):** Python/Flask, Odoo ERP, Supabase, PostgreSQL/SQLite
 
 ---
 
-## 1. Executive Summary
+## 1. Resumen Ejecutivo (Executive Summary)
 
 El Dashboard de Ventas Farmacéuticas es una aplicación web empresarial construida con Flask que integra datos de Odoo ERP para proporcionar visualizaciones analíticas de ventas, gestión de metas, y métricas de desempeño del equipo comercial. La aplicación implementa una arquitectura en capas (Layered Architecture) con separación clara de responsabilidades entre presentación, lógica de negocio, y acceso a datos.
 
-### Características Principales
+### Características Principales (Key Features)
 - **Integración ERP**: Conexión en tiempo real con Odoo mediante JSON-RPC (migrado desde XML-RPC en Marzo 2026)
 - **Gestión de Metas**: Sistema de metas de ventas con Supabase como backend
 - **Analytics Integrado**: Sistema de monitoreo de uso y adopción del dashboard
@@ -23,24 +23,24 @@ El Dashboard de Ventas Farmacéuticas es una aplicación web empresarial constru
 
 ---
 
-## 2. Architecture Detection and Analysis
+## 2. Detección y Análisis de Arquitectura (Architecture Detection and Analysis)
 
-### 2.1 Technology Stack Detection
+### 2.1 Detección del Stack Tecnológico (Technology Stack Detection)
 
-#### Backend Framework
+#### Framework Backend (Backend Framework)
 ```python
 Flask==3.1.3          # Web framework principal
 Werkzeug==3.1.6       # WSGI utility library
 gunicorn==23.0.0      # Production WSGI server
 ```
 
-#### Authentication & Security
+#### Autenticación y Seguridad (Authentication & Security)
 ```python
 Authlib==1.6.7        # OAuth2 implementation
 python-dotenv==1.1.1  # Environment configuration
 ```
 
-#### Data Layer
+#### Capa de Datos (Data Layer)
 ```python
 psycopg2-binary==2.9.10  # PostgreSQL adapter
 supabase==2.14.0         # Supabase client for metas
@@ -48,12 +48,12 @@ pandas==2.2.3            # Data processing
 openpyxl==3.1.5          # Excel export
 ```
 
-#### Integration Layer
+#### Capa de Integración (Integration Layer)
 ```python
 requests==2.32.5      # HTTP client for Odoo JSON-RPC
 ```
 
-### 2.2 Architectural Pattern Analysis
+### 2.2 Análisis de Patrones Arquitectónicos (Architectural Pattern Analysis)
 
 El proyecto implementa **Layered Architecture** con las siguientes capas:
 
@@ -85,9 +85,9 @@ El proyecto implementa **Layered Architecture** con las siguientes capas:
 
 ---
 
-## 3. Architectural Overview
+## 3. Visión General de la Arquitectura (Architectural Overview)
 
-### 3.1 Core Principles
+### 3.1 Principios Fundamentales (Core Principles)
 
 1. **Separation of Concerns**
    - Cada manager gestiona un dominio específico (Odoo, Supabase, Analytics)
@@ -113,7 +113,7 @@ El proyecto implementa **Layered Architecture** con las siguientes capas:
    - Ejemplos en `.env.example` para onboarding
    - Separación dev/staging/production
 
-### 3.2 Architectural Boundaries
+### 3.2 Límites Arquitectónicos (Architectural Boundaries)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -149,9 +149,9 @@ El proyecto implementa **Layered Architecture** con las siguientes capas:
 
 ---
 
-## 4. Core Architectural Components
+## 4. Componentes Arquitectónicos Principales (Core Architectural Components)
 
-### 4.1 OdooManager - ERP Integration Layer
+### 4.1 OdooManager - Capa de Integración ERP (ERP Integration Layer)
 
 **Purpose**: Proporciona una abstracción completa sobre la API JSON-RPC de Odoo para consultas de datos de ventas, productos, clientes y operaciones comerciales. Migrado desde XML-RPC en Marzo 2026 para mejor rendimiento y evitar bugs en módulos de auditoría.
 
@@ -228,7 +228,7 @@ def dashboard():
 
 ---
 
-### 4.2 SupabaseManager - Goals & Targets Management
+### 4.2 SupabaseManager - Gestión de Metas y Objetivos (Goals & Targets Management)
 
 **Purpose**: Gestiona el sistema de metas de ventas (targets) almacenadas en Supabase, reemplazando el sistema legacy de Google Sheets.
 
@@ -328,7 +328,7 @@ CREATE TABLE equipos_ventas_2026 (
 
 ---
 
-### 4.3 AnalyticsDB - Usage Monitoring & Metrics
+### 4.3 AnalyticsDB - Monitoreo de Uso y Métricas (Usage Monitoring & Metrics)
 
 **Purpose**: Sistema interno de telemetría que rastrea el uso del dashboard para medir adopción, identificar páginas populares, y detectar problemas de UX.
 
@@ -425,7 +425,7 @@ def after_request(response):
 
 ---
 
-### 4.4 PermissionsManager - Granular Access Control
+### 4.4 PermissionsManager - Control de Acceso Granular (Granular Access Control)
 
 **Purpose**: Sistema centralizado de control de acceso basado en roles (RBAC) que reemplaza las listas hardcodeadas dispersas en el código. Implementado en Marzo 2026 para mejorar seguridad y mantenibilidad.
 
@@ -526,7 +526,7 @@ permissions_manager.migrate_from_lists(
 
 ---
 
-### 4.5 Flask Application Core (app.py)
+### 4.5 Núcleo de la Aplicación Flask (Flask Application Core) - app.py
 
 **Purpose**: Punto de entrada principal que orquesta todos los componentes, define routes, maneja autenticación y coordina el flujo de datos.
 
@@ -629,9 +629,9 @@ if email not in allowed_emails:
 
 ---
 
-## 5. Architectural Layers and Dependencies
+## 5. Capas Arquitectónicas y Dependencias (Architectural Layers and Dependencies)
 
-### 5.1 Layer Structure
+### 5.1 Estructura de Capas (Layer Structure)
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -676,7 +676,7 @@ if email not in allowed_emails:
 └─────────────────────────────────────────────────────┘
 ```
 
-### 5.2 Dependency Flow Rules
+### 5.2 Reglas de Flujo de Dependencias (Dependency Flow Rules)
 
 **Strict Rules**:
 1. ✅ **Presentation → Application**: Templates pueden referenciar routes
@@ -705,7 +705,7 @@ def dashboard():
 - **Fallback Patterns**: Stub managers cuando servicios no disponibles
 - **Environment Configuration**: `.env` abstrae diferencias dev/staging/prod
 
-### 5.3 Layer Violations & Technical Debt
+### 5.3 Violaciones de Capas y Deuda Técnica (Layer Violations & Technical Debt)
 
 **Identified Issues**:
 
@@ -749,9 +749,9 @@ def dashboard():
 
 ---
 
-## 6. Data Architecture
+## 6. Arquitectura de Datos (Data Architecture)
 
-### 6.1 Domain Model Overview
+### 6.1 Visión General del Modelo de Dominio (Domain Model Overview)
 
 El sistema maneja tres dominios principales de datos:
 
@@ -831,7 +831,7 @@ Origen: Local DB (SQLite/PostgreSQL) `page_visits`
 }
 ```
 
-### 6.2 Data Flow Patterns
+### 6.2 Patrones de Flujo de Datos (Data Flow Patterns)
 
 #### **Read Flow (Dashboard)**
 ```
@@ -875,7 +875,7 @@ Flash message de confirmación
 Redirect a página de metas
 ```
 
-### 6.3 Data Access Patterns
+### 6.3 Patrones de Acceso a Datos (Data Access Patterns)
 
 #### **Repository-like Pattern en OdooManager**
 ```python
@@ -927,7 +927,7 @@ def guardar_meta_venta(self, mes, linea_comercial, meta_total, meta_ipn):
     return result.data[0] if result.data else None
 ```
 
-### 6.4 Caching Strategies
+### 6.4 Estrategias de Caché (Caching Strategies)
 
 **Current State**: No caching implementado (todas las queries son en tiempo real)
 
@@ -958,9 +958,9 @@ def guardar_meta_venta(self, mes, linea_comercial, meta_total, meta_ipn):
 
 ---
 
-## 7. Cross-Cutting Concerns Implementation
+## 7. Implementación de Aspectos Transversales (Cross-Cutting Concerns Implementation)
 
-### 7.1 Authentication & Authorization
+### 7.1 Autenticación y Autorización (Authentication & Authorization)
 
 #### **Session Timeout (Implementado Marzo 2026)**
 
@@ -1129,7 +1129,7 @@ def add_security_headers(response):
 - Security Headers (A04): 6/10 → 7/10 (7 headers implementados)
 - Overall Security: 7.1/10 → 7.4/10
 
-### 7.2 Error Handling & Resilience
+### 7.2 Manejo de Errores y Resiliencia (Error Handling & Resilience)
 
 #### **Graceful Degradation Pattern**
 
@@ -1224,7 +1224,7 @@ finally:
     return redirect(url_for('meta'))
 ```
 
-### 7.3 Logging & Monitoring
+### 7.3 Registro y Monitoreo (Logging & Monitoring)
 
 #### **Application Logging**
 
@@ -1275,7 +1275,7 @@ analytics_db.obtener_visitas_por_hora(dias=1)
 - Time-of-day patterns (picos de uso)
 - Dead features detection (páginas sin visitas)
 
-### 7.4 Validation Patterns
+### 7.4 Patrones de Validación (Validation Patterns)
 
 #### **Input Validation (Forms)**
 
@@ -1322,7 +1322,7 @@ class SupabaseManager:
         }
 ```
 
-### 7.5 Configuration Management
+### 7.5 Gestión de Configuración (Configuration Management)
 
 #### **Environment Variables (.env)**
 
@@ -1395,9 +1395,9 @@ datos_reporte_ceo.json
 
 ---
 
-## 8. Service Communication Patterns
+## 8. Patrones de Comunicación entre Servicios (Service Communication Patterns)
 
-### 8.1 Odoo ERP Integration (JSON-RPC)
+### 8.1 Integración Odoo ERP (JSON-RPC) (Odoo ERP Integration - JSON-RPC)
 
 **Protocol**: JSON-RPC 2.0 over HTTPS
 
@@ -1488,7 +1488,7 @@ except Exception as e:
     return None
 ```
 
-### 8.2 Supabase Integration (REST API)
+### 8.2 Integración Supabase (REST API) (Supabase Integration - REST API)
 
 **Protocol**: REST over HTTPS (PostgREST)
 
@@ -1575,9 +1575,9 @@ def registrar_visita(self, user_email, page_url, ...):
 
 ---
 
-## 9. Python Architectural Patterns
+## 9. Patrones Arquitectónicos de Python (Python Architectural Patterns)
 
-### 9.1 Module Organization
+### 9.1 Organización de Módulos (Module Organization)
 
 ```
 dashboard-ventas/
@@ -1608,7 +1608,7 @@ from flask import Flask, render_template, ...
 import pandas as pd
 ```
 
-### 9.2 OOP Implementation Patterns
+### 9.2 Patrones de Implementación OOP (OOP Implementation Patterns)
 
 #### **Manager Pattern** (Service Layer)
 
@@ -1678,7 +1678,7 @@ class AnalyticsDB:
             cursor.execute(...)
 ```
 
-### 9.3 Flask-Specific Patterns
+### 9.3 Patrones Específicos de Flask (Flask-Specific Patterns)
 
 #### **Application Factory Pattern** (Simplified)
 
@@ -1778,7 +1778,7 @@ def dashboard():
                          is_admin=is_admin)
 ```
 
-### 9.4 Data Processing Patterns
+### 9.4 Patrones de Procesamiento de Datos (Data Processing Patterns)
 
 #### **Pandas Integration**
 
@@ -1819,7 +1819,7 @@ def procesar_ventas_stream(sales_lines):
             yield transformar_linea(line)
 ```
 
-### 9.5 Error Handling Patterns
+### 9.5 Patrones de Manejo de Errores (Error Handling Patterns)
 
 #### **Try-Except-Finally Pattern**
 
@@ -1866,9 +1866,9 @@ except Exception as e:
 
 ---
 
-## 10. Implementation Patterns
+## 10. Patrones de Implementación (Implementation Patterns)
 
-### 10.1 Interface Design Patterns
+### 10.1 Patrones de Diseño de Interfaces (Interface Design Patterns)
 
 **Implicit Interfaces** (Python duck typing):
 
@@ -1906,7 +1906,7 @@ class OdooManager(IDataProvider):
     def get_filter_options(self): ...
 ```
 
-### 10.2 Service Implementation Patterns
+### 10.2 Patrones de Implementación de Servicios (Service Implementation Patterns)
 
 #### **Patrón: Inicialización con Validación**
 
@@ -1980,7 +1980,7 @@ def _create_jsonrpc_models_proxy(self):
     return JSONRPCModelsProxy(self)
 ```
 
-### 10.3 Repository Implementation Patterns
+### 10.3 Patrones de Implementación de Repositorio (Repository Implementation Patterns)
 
 **Query Builder Pattern** (en OdooManager):
 
@@ -2034,7 +2034,7 @@ def obtener_meta_especifica(self, mes, linea_comercial):
     return result.data[0] if result.data else None
 ```
 
-### 10.4 Controller/API Implementation Patterns
+### 10.4 Patrones de Implementación de Controlador/API (Controller/API Implementation Patterns)
 
 **Resource-Oriented Routes**:
 
@@ -2113,7 +2113,7 @@ def export_dashboard_details():
     )
 ```
 
-### 10.5 Domain Model Implementation
+### 10.5 Implementación del Modelo de Dominio (Domain Model Implementation)
 
 **Data Transfer Object (DTO) Pattern** (implicit):
 
@@ -2166,9 +2166,9 @@ class SaleLine:
 
 ---
 
-## 11. Testing Architecture
+## 11. Arquitectura de Pruebas (Testing Architecture)
 
-### 11.1 Current State
+### 11.1 Estado Actual (Current State)
 
 **Test Files Existentes**:
 ```
@@ -2183,7 +2183,7 @@ src/test_*.py            # Tests de componentes individuales
 - ✅ Tests de configuración (environment variables)
 - ❌ No hay tests automatizados en CI/CD
 
-### 11.2 Recommended Testing Architecture
+### 11.2 Arquitectura de Pruebas Recomendada (Recommended Testing Architecture)
 
 #### **Unit Tests** (a implementar)
 
@@ -2267,7 +2267,7 @@ class TestDashboardFlow(unittest.TestCase):
         self.assertIn(b'Dashboard', response.data)
 ```
 
-### 11.3 Test Data Strategies
+### 11.3 Estrategias de Datos de Prueba (Test Data Strategies)
 
 **Fixtures** (recommended):
 ```python
@@ -2291,9 +2291,9 @@ SAMPLE_META = {
 
 ---
 
-## 12. Deployment Architecture
+## 12. Arquitectura de Despliegue (Deployment Architecture)
 
-### 12.1 Deployment Topology
+### 12.1 Topología de Despliegue (Deployment Topology)
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -2324,7 +2324,7 @@ SAMPLE_META = {
   └────────┘ └─────────┘ └──────────┘ └──────────┘
 ```
 
-### 12.2 Environment Configuration
+### 12.2 Configuración de Entornos (Environment Configuration)
 
 **Development** (.env.dev):
 ```bash
@@ -2352,7 +2352,7 @@ SECRET_KEY=producción_secret_key_32_chars
 DEBUG=False
 ```
 
-### 12.3 Deployment Checklist
+### 12.3 Lista de Verificación de Despliegue (Deployment Checklist)
 
 **Pre-Deployment**:
 - [ ] All tests passing
@@ -2397,7 +2397,7 @@ errorlog = "/var/log/gunicorn/error.log"
 loglevel = "info"
 ```
 
-### 12.4 Containerization (Docker - Recommended)
+### 12.4 Containerización (Docker - Recomendado) (Containerization - Docker Recommended)
 
 **Dockerfile**:
 ```dockerfile
@@ -2467,9 +2467,9 @@ volumes:
 
 ---
 
-## 13. Extension and Evolution Patterns
+## 13. Patrones de Extensión y Evolución (Extension and Evolution Patterns)
 
-### 13.1 Adding New Features
+### 13.1 Añadir Nuevas Funcionalidades (Adding New Features)
 
 #### **Patrón: Nuevo Dashboard**
 
@@ -2568,7 +2568,7 @@ def nueva_entidad_detail(id): ...
 def nueva_entidad_create(): ...
 ```
 
-### 13.2 Modification Patterns
+### 13.2 Patrones de Modificación (Modification Patterns)
 
 #### **Agregar Campo a Dashboard Existente**
 
@@ -2636,7 +2636,7 @@ def get_sales_lines(self, ..., nuevo_filtro=None):
     sales_lines = self.models.execute_kw(..., [domain])
 ```
 
-### 13.3 Integration Patterns
+### 13.3 Patrones de Integración (Integration Patterns)
 
 #### **Integrar Nuevo Sistema Externo**
 
@@ -2682,9 +2682,9 @@ def dashboard_integrado():
 
 ---
 
-## 14. Architectural Pattern Examples
+## 14. Ejemplos de Patrones Arquitectónicos (Architectural Pattern Examples)
 
-### 14.1 Layer Separation Examples
+### 14.1 Ejemplos de Separación de Capas (Layer Separation Examples)
 
 **Correcto ✅: Route delega a Manager**
 ```python
@@ -2751,7 +2751,7 @@ def dashboard():
     total = sum(line['price_subtotal'] for line in sales_lines)
 ```
 
-### 14.2 Component Communication Examples
+### 14.2 Ejemplos de Comunicación entre Componentes (Component Communication Examples)
 
 **Dependency Injection via Constructor**:
 ```python
@@ -2826,7 +2826,7 @@ def after_request(response):
     return response
 ```
 
-### 14.3 Extension Point Examples
+### 14.3 Ejemplos de Puntos de Extensión (Extension Point Examples)
 
 **Plugin Registration** (ejemplo futuro para exporters):
 ```python
@@ -2927,9 +2927,9 @@ def dashboard():
 
 ---
 
-## 15. Architectural Decision Records (ADRs)
+## 15. Registros de Decisiones Arquitectónicas - ADRs (Architectural Decision Records - ADRs)
 
-### ADR-001: Python/Flask como Stack Principal
+### ADR-001: Python/Flask como Stack Principal (Python/Flask as Main Stack)
 
 **Context**: Necesidad de dashboard web con integración rápida a Odoo ERP.
 
@@ -2953,7 +2953,7 @@ def dashboard():
 
 ---
 
-### ADR-002: JSON-RPC sobre XML-RPC para Odoo
+### ADR-002: JSON-RPC sobre XML-RPC para Odoo (JSON-RPC over XML-RPC for Odoo)
 
 **Context**: Conexión a Odoo ERP, módulo `cs_login_audit_log` causa `RuntimeError` en XML-RPC.
 
@@ -2974,7 +2974,7 @@ def dashboard():
 
 ---
 
-### ADR-003: Supabase para Gestión de Metas
+### ADR-003: Supabase para Gestión de Metas (Supabase for Goal Management)
 
 **Context**: Sistema legacy de metas en Google Sheets era frágil y lento.
 
@@ -2999,7 +2999,7 @@ def dashboard():
 
 ---
 
-### ADR-004: SQLite Fallback para Analytics
+### ADR-004: SQLite Fallback para Analytics (SQLite Fallback for Analytics)
 
 **Context**: Analytics DB debe funcionar en dev sin PostgreSQL instalado.
 
@@ -3025,7 +3025,7 @@ else:
 
 ---
 
-### ADR-005: OAuth2 con Google Workspace
+### ADR-005: OAuth2 con Google Workspace (OAuth2 with Google Workspace)
 
 **Context**: Necesidad de SSO corporativo para control de acceso.
 
@@ -3048,7 +3048,7 @@ else:
 
 ---
 
-### ADR-006: Server-Side Rendering con Jinja2
+### ADR-006: Server-Side Rendering con Jinja2 (Server-Side Rendering with Jinja2)
 
 **Context**: Decisión entre SPA (React/Vue) vs Server-Side Rendering.
 
@@ -3071,7 +3071,7 @@ else:
 
 ---
 
-### ADR-007: Hardcoded Permission Lists (Technical Debt)
+### ADR-007: Listas de Permisos Hardcoded - Deuda Técnica (Hardcoded Permission Lists - Technical Debt)
 
 **Context**: Sistema de permisos implementado con listas de emails en código.
 

@@ -112,11 +112,11 @@ def add_security_headers(response):
     # TODO: Hacer más estricto en producción moviendo scripts inline a archivos externos
     csp_directives = [
         "default-src 'self'",  # Por defecto solo recursos del mismo origen
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Scripts + Google + CDNs
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Estilos + Google Fonts + CDNs
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net https://code.jquery.com",  # Scripts + Google + CDNs + DataTables
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net",  # Estilos + Google Fonts + CDNs + DataTables
         "img-src 'self' data: https: blob:",  # Imágenes: locales, data URIs, HTTPS y blobs
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Fuentes de Google y CDNs
-        "connect-src 'self' https://accounts.google.com https://*.google.com https://*.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Conexiones AJAX/fetch a Google y CDNs
+        "connect-src 'self' https://accounts.google.com https://*.google.com https://*.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net",  # Conexiones AJAX/fetch a Google y CDNs + DataTables
         "frame-src 'self' https://accounts.google.com https://*.google.com",  # iframes de Google OAuth
         "frame-ancestors 'self'",  # Solo el mismo origen puede embeber esta página
         "base-uri 'self'",  # Previene inyección de base tag
@@ -628,6 +628,12 @@ def loading():
     """Mostrar página de carga mientras se cargan los datos del dashboard"""
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Si el usuario es Administrador Total, redirigir a Administración de Usuarios
+    user_role = session.get('user_role')
+    if user_role == 'admin_full':
+        return redirect(url_for('admin_users'))
+    
     return render_template('loading.html')
 
 @app.route('/authorize')
