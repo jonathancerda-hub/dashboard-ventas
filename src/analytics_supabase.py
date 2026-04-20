@@ -184,11 +184,19 @@ class AnalyticsSupabase:
             for row in response.data:
                 email = row['user_email']
                 if email not in user_stats:
+                    # Convertir timestamp string a datetime
+                    last_visit_str = row['visit_timestamp']
+                    try:
+                        # Intentar parsear el timestamp ISO
+                        last_visit = datetime.fromisoformat(last_visit_str.replace('Z', '+00:00'))
+                    except:
+                        last_visit = None
+                    
                     user_stats[email] = {
                         'user_email': email,
                         'user_name': row.get('user_name', email),
                         'visit_count': 0,
-                        'last_visit': row['visit_timestamp']
+                        'last_visit': last_visit
                     }
                 user_stats[email]['visit_count'] += 1
             
@@ -305,9 +313,15 @@ class AnalyticsSupabase:
             
             # Convertir sets a contadores y ordenar
             result = []
-            for date, stats in day_stats.items():
+            for date_str, stats in day_stats.items():
+                # Convertir el string ISO a datetime.date object
+                try:
+                    date_obj = datetime.fromisoformat(date_str).date()
+                except:
+                    date_obj = date_str  # Fallback si falla la conversión
+                
                 result.append({
-                    'visit_date': date,
+                    'visit_date': date_obj,
                     'visit_count': stats['visit_count'],
                     'unique_users': len(stats['unique_users'])
                 })
@@ -395,7 +409,18 @@ class AnalyticsSupabase:
             
             if response.data:
                 logger.debug(f"📊 {len(response.data)} visitas recientes obtenidas")
-                return response.data
+                # Convertir timestamps a datetime objects
+                visits = []
+                for visit in response.data:
+                    visit_copy = visit.copy()
+                    try:
+                        timestamp_str = visit_copy.get('visit_timestamp')
+                        if timestamp_str:
+                            visit_copy['visit_timestamp'] = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    except:
+                        visit_copy['visit_timestamp'] = None
+                    visits.append(visit_copy)
+                return visits
             
             return []
             

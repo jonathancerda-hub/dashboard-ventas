@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    .error-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 70vh;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .error-icon {
+        font-size: 6rem;
+        color: #ffc107;
+        margin-bottom: 1rem;
+        animation: bounce 1s infinite;
+    }
+    
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-20px); }
+    }
+    
+    .error-code {
+        font-size: 4rem;
+        font-weight: bold;
+        color: #ffc107;
+        margin: 0;
+    }
+    
+    .error-title {
+        font-size: 2rem;
+        color: #333;
+        margin: 1rem 0;
+    }
+    
+    .error-message {
+        font-size: 1.1rem;
+        color: #666;
+        margin: 1rem 0 2rem 0;
+        max-width: 600px;
+    }
+    
+    .error-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .btn-error {
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary-error {
+        background: #007bff;
+        color: white;
+        border: none;
+    }
+    
+    .btn-primary-error:hover {
+        background: #0056b3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,123,255,0.3);
+    }
+    
+    .btn-secondary-error {
+        background: #6c757d;
+        color: white;
+        border: none;
+    }
+    
+    .btn-secondary-error:hover {
+        background: #545b62;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(108,117,125,0.3);
+    }
+    
+    .error-suggestions {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        max-width: 600px;
+        text-align: left;
+    }
+    
+    .error-suggestions h3 {
+        font-size: 1.2rem;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+    
+    .error-suggestions ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .error-suggestions li {
+        padding: 0.5rem 0;
+        font-size: 0.95rem;
+        color: #666;
+    }
+    
+    .error-suggestions li::before {
+        content: "→ ";
+        color: #007bff;
+        font-weight: bold;
+    }
+    
+    .error-suggestions a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    
+    .error-suggestions a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-icon">🔍</div>
+    <h1 class="error-code">404</h1>
+    <h2 class="error-title">Página No Encontrada</h2>
+    <p class="error-message">
+        Lo sentimos, la página que busca no existe o ha sido movida. 
+        Verifique la URL o regrese a la página principal.
+    </p>
+    
+    <div class="error-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn-error btn-primary-error">
+            🏠 Ir al Dashboard
+        </a>
+        <a href="javascript:history.back()" class="btn-error btn-secondary-error">
+            ← Volver Atrás
+        </a>
+    </div>
+    
+    <div class="error-suggestions">
+        <h3>Páginas Populares</h3>
+        <ul>
+            <li><a href="{{ url_for('dashboard') }}">Dashboard Principal</a></li>
+            <li><a href="{{ url_for('dashboard_linea') }}">Dashboard por Línea</a></li>
+            <li><a href="{{ url_for('analytics') }}">Analytics</a></li>
+            {% if session.get('is_admin') %}
+            <li><a href="{{ url_for('admin_users') }}">Gestión de Usuarios</a></li>
+            <li><a href="{{ url_for('admin_audit_log') }}">Registro de Auditoría</a></li>
+            {% endif %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

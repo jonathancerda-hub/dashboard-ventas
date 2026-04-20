@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 import os
 
 # Cargar variables de entorno ANTES de importar módulos que las necesitan
-load_dotenv()
+# override=True: Sobrescribir variables del sistema con valores del .env
+load_dotenv(override=True)
 
 # Configurar logging ANTES de importar otros módulos
 from src.logging_config import setup_logging, get_logger
@@ -19,6 +20,8 @@ from src.permissions_manager import PermissionsManager
 from src.audit_logger import AuditLogger
 from src.utils import get_meses_del_año, normalizar_linea_comercial, limpiar_nombre_producto, limpiar_nombre_atrevia
 from authlib.integrations.flask_client import OAuth
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from functools import wraps
 import pandas as pd
 import json
@@ -31,6 +34,15 @@ import pytz
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+
+# Configuración de Rate Limiting (A01: Broken Authentication - ISO/IEC 27001:2022 A.9.4.2)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri=os.getenv('REDIS_URL', 'memory://'),  # Usa Redis si está disponible, sino memoria
+    strategy='fixed-window'
+)
 
 # Configuración de seguridad para sesiones (A01: Broken Authentication)
 app.config.update(
@@ -139,19 +151,23 @@ def add_security_headers(response):
 # --- Inicialización de Managers ---
 try:
     data_manager = OdooManager()
+    logger.info(f"✅ data_manager inicializado: {type(data_manager).__name__}")
+    logger.info(f"✅ OdooManager UID: {getattr(data_manager, 'uid', 'N/A')}")
 except Exception as e:
-    logger.warning(f"No se pudo inicializar OdooManager: {e}. Continuando en modo offline.")
+    logger.warning(f"❌ No se pudo inicializar OdooManager: {e}. Continuando en modo offline.")
     # Crear un stub mínimo con las funciones usadas en la app para evitar fallos
     class _StubManager:
         def get_filter_options(self):
             return {'lineas': [], 'clients': []}
         def get_sales_lines(self, *args, **kwargs):
+            logger.warning("⚠️ Usando _StubManager (modo offline) - retornando []")
             return []
         def get_all_sellers(self):
             return []
         def get_commercial_lines_stacked_data(self, *args, **kwargs):
             return {'yAxis': [], 'series': [], 'legend': []}
     data_manager = _StubManager()
+    logger.warning(f"⚠️ data_manager en modo stub: {type(data_manager).__name__}")
 
 # Inicializar Supabase Manager para metas de 2026
 supabase_manager = SupabaseManager()
@@ -164,6 +180,15 @@ permissions_manager = PermissionsManager()
 
 # Inicializar sistema de auditoría
 audit_logger = AuditLogger()
+
+# --- Context Processor para Templates ---
+@app.context_processor
+def inject_datetime():
+    """Inyectar funciones de fecha/hora en todas las plantillas"""
+    return {
+        'now': datetime.now,
+        'datetime': datetime
+    }
 
 # --- Middleware para Analytics y Seguridad ---
 
@@ -586,11 +611,13 @@ def admin_audit_log():
 # Imports: get_meses_del_año, normalizar_linea_comercial, limpiar_nombre_producto, limpiar_nombre_atrevia
 
 @app.route('/login')
+@limiter.limit("10 per minute")  # Máximo 10 accesos por minuto a la página de login
 def login():
     """Mostrar página de login con botón de Google"""
     return render_template('login.html')
 
 @app.route('/google-oauth')
+@limiter.limit("10 per minute")  # Máximo 10 intentos de OAuth por minuto
 def google_oauth():
     """Iniciar el proceso de autenticación con Google OAuth2"""
     redirect_uri = url_for('authorize', _external=True)
@@ -604,6 +631,7 @@ def loading():
     return render_template('loading.html')
 
 @app.route('/authorize')
+@limiter.limit("5 per minute")  # Más restrictivo para OAuth callback (máximo 5 por minuto)
 def authorize():
     """Callback de Google OAuth2 - Procesar la respuesta de autenticación"""
     try:
@@ -641,17 +669,19 @@ def authorize():
                     
             except Exception as e:
                 logger.error(f"Error verificando permisos para {email}: {e}", exc_info=True)
-                flash(f'Error al verificar permisos: {str(e)}', 'danger')
+                flash('Error al verificar permisos. Por favor, contacte al administrador.', 'danger')
                 return redirect(url_for('login'))
             except Exception as e:
-                flash(f'Error al verificar permisos: {str(e)}', 'danger')
+                logger.error(f"Error verificando permisos: {e}", exc_info=True)
+                flash('Error al verificar permisos. Por favor, contacte al administrador.', 'danger')
                 return redirect(url_for('login'))
         else:
             flash('No se pudo obtener información del usuario de Google.', 'danger')
             return redirect(url_for('login'))
             
     except Exception as e:
-        flash(f'Error en la autenticación: {str(e)}', 'danger')
+        logger.error(f"Error en autenticación OAuth: {e}", exc_info=True)
+        flash('Error en la autenticación. Por favor, intente nuevamente.', 'danger')
         return redirect(url_for('login'))
 
 @app.route('/desing-login')
@@ -715,6 +745,8 @@ def sales():
         
         # Fetch data on every page load (GET and POST)
         # On GET, filters are None, so odoo_manager will use defaults (last 30 days)
+        logger.info(f"🔍 Obteniendo líneas de venta completas...")
+        logger.info(f"   Filtros: date_from={query_filters.get('date_from')}, date_to={query_filters.get('date_to')}")
         sales_data = data_manager.get_sales_lines(
             date_from=query_filters.get('date_from'),
             date_to=query_filters.get('date_to'),
@@ -723,6 +755,7 @@ def sales():
             linea_id=None,
             limit=1000
         )
+        logger.info(f"📊 Obtenidas {len(sales_data)} líneas de ventas desde Odoo")
         
         # Filtrar VENTA INTERNACIONAL (exportaciones)
         sales_data_filtered = []
@@ -750,7 +783,8 @@ def sales():
                              is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
-        flash(f'Error al obtener datos: {str(e)}', 'danger')
+        logger.error(f"Error al obtener datos de ventas: {e}", exc_info=True)
+        flash('No se pudieron cargar los datos de ventas. Intente nuevamente más tarde.', 'danger')
         return render_template('sales.html', 
                              sales_data=[],
                              filter_options={'lineas': [], 'clientes': []},
@@ -1200,10 +1234,11 @@ def dashboard():
                              is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
-        print(f"❌ ERROR CAPTURADO: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        flash(f'Error al obtener datos del dashboard: {str(e)}', 'danger')
+        # Log completo para debugging (solo en logs, no visible al usuario)
+        logger.error(f"Error al obtener datos del dashboard: {type(e).__name__}: {e}", exc_info=True)
+        
+        # Mensaje genérico para el usuario (sin exponer detalles técnicos)
+        flash('No se pudieron cargar los datos del dashboard. Por favor, intente nuevamente.', 'danger')
         
         # Crear datos por defecto para evitar errores
         fecha_actual = datetime.now()
@@ -1590,7 +1625,8 @@ def dashboard_linea():
                                is_admin=is_admin) # Pasar el flag a la plantilla
 
     except Exception as e:
-        flash(f'Error al generar el dashboard para la línea: {str(e)}', 'danger')
+        logger.error(f"Error al generar dashboard por línea: {e}", exc_info=True)
+        flash('No se pudo cargar el dashboard de la línea comercial. Intente nuevamente.', 'danger')
         # En caso de error, renderizar la plantilla con datos vacíos para no romper la UI
         fecha_actual = datetime.now()
         año_actual = fecha_actual.year
@@ -1783,10 +1819,8 @@ def meta():
                              is_admin=is_admin) # Pasar el flag a la plantilla
     
     except Exception as e:
-        print(f"❌ ERROR en /meta: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        flash(f'Error al procesar metas: {str(e)}', 'danger')
+        logger.error(f"Error en /meta: {type(e).__name__}: {e}", exc_info=True)
+        flash('Error al procesar las metas. Por favor, intente nuevamente.', 'danger')
         return render_template('meta.html',
                              lineas_comerciales=[],
                              metas_actuales={},
@@ -1882,7 +1916,8 @@ def export_excel_sales():
         )
         
     except Exception as e:
-        flash(f'Error al exportar datos: {str(e)}', 'danger')
+        logger.error(f"Error al exportar datos: {e}", exc_info=True)
+        flash('Error al exportar los datos. Verifique los filtros e intente nuevamente.', 'danger')
         return redirect(url_for('sales'))
 
 @app.route('/metas_vendedor', methods=['GET', 'POST'])
@@ -2217,7 +2252,8 @@ def export_dashboard_details():
         )
 
     except Exception as e:
-        flash(f'Error al exportar los detalles del dashboard: {str(e)}', 'danger')
+        logger.error(f"Error al exportar detalles del dashboard: {e}", exc_info=True)
+        flash('Error al exportar los detalles. Por favor, intente nuevamente.', 'danger')
         return redirect(url_for('dashboard'))
 
 
@@ -2431,6 +2467,106 @@ if (document.getElementById('visitsPerDayChart')) {{
     stats['chart_js_code'] = chart_js_code
     
     return render_template('analytics.html', stats=stats, period=days)
+
+
+# =============================================================================
+# MANEJADORES GLOBALES DE ERRORES (ISO 27001 - Sección 5)
+# =============================================================================
+
+@app.errorhandler(403)
+def forbidden(e):
+    """Maneja errores de acceso prohibido (403 Forbidden)"""
+    logger.warning(f"Acceso prohibido - Usuario: {session.get('user_email', 'Desconocido')} - Path: {request.path}")
+    
+    # Si es una petición AJAX, devolver JSON
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'error': 'No tiene permisos para acceder a este recurso'}), 403
+    
+    # Si es una petición normal, renderizar template
+    return render_template('admin/error_403.html'), 403
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Maneja errores de rate limiting (429 Too Many Requests)"""
+    logger.warning(f"Rate limit excedido - IP: {request.remote_addr} - Path: {request.path} - Usuario: {session.get('username', 'No autenticado')}")
+    
+    # Si es una petición AJAX, devolver JSON
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'error': 'Demasiados intentos. Por favor, espera un momento.',
+            'retry_after': '60 segundos'
+        }), 429
+    
+    # Si es una petición normal, renderizar template
+    return render_template('admin/error_429.html'), 429
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Maneja errores de página no encontrada (404 Not Found)"""
+    logger.info(f"Página no encontrada - Path: {request.path} - Referrer: {request.referrer}")
+    
+    # Si es una petición AJAX, devolver JSON
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'error': 'Recurso no encontrado'}), 404
+    
+    # Si es una petición normal, renderizar template
+    return render_template('admin/error_404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Maneja errores internos del servidor (500 Internal Server Error)"""
+    # Log detallado para debugging (con stack trace)
+    logger.error(f"Error interno del servidor: {type(e).__name__}: {str(e)}", exc_info=True)
+    
+    # Si es una petición AJAX, devolver JSON genérico
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # En desarrollo, mostrar detalles; en producción, mensaje genérico
+        if app.config.get('DEBUG'):
+            return jsonify({'error': f'Error interno: {str(e)}'}), 500
+        else:
+            return jsonify({'error': 'Error interno del servidor. Por favor, intente nuevamente.'}), 500
+    
+    # Si es una petición normal, renderizar template
+    return render_template('admin/error_500.html'), 500
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    """
+    Manejador genérico para errores no manejados.
+    Previene exposición de información técnica (ISO 27001 A.14.2.5)
+    """
+    # Log completo del error con stack trace
+    logger.error(f"Error no manejado - Tipo: {type(e).__name__} - Mensaje: {str(e)}", exc_info=True)
+    
+    # Determinar mensaje de error según contexto
+    error_message = 'Ha ocurrido un error. Por favor, intente nuevamente.'
+    
+    # Mensajes más específicos para ciertos tipos de error
+    if 'network' in str(e).lower() or 'connection' in str(e).lower():
+        error_message = 'Error de conexión. Verifique su conexión a internet e intente nuevamente.'
+    elif 'timeout' in str(e).lower():
+        error_message = 'La operación tardó demasiado tiempo. Por favor, intente nuevamente.'
+    elif 'permission' in str(e).lower() or 'forbidden' in str(e).lower():
+        error_message = 'No tiene permisos para realizar esta operación.'
+    
+    # Si es una petición AJAX, devolver JSON
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # En desarrollo, incluir tipo de error (sin stack trace)
+        if app.config.get('DEBUG'):
+            return jsonify({
+                'error': error_message,
+                'debug_info': f"{type(e).__name__}: {str(e)}"
+            }), 500
+        else:
+            return jsonify({'error': error_message}), 500
+    
+    # Si es una petición normal, renderizar template
+    return render_template('admin/error_500.html', 
+                         error_message=error_message if not app.config.get('DEBUG') else str(e)), 500
 
 
 if __name__ == '__main__':

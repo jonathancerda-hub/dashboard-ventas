@@ -5,6 +5,7 @@ import json
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+import xmlrpc.client
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -78,46 +79,46 @@ class OdooManager:
                 ] if not val]
                 raise ValueError(f"Variables de entorno faltantes: {', '.join(missing)}")
             
-            # Timeout configurable para llamadas JSON-RPC (segundos)
+            # Timeout configurable para llamadas RPC (segundos)
             try:
                 self.rpc_timeout = int(os.getenv('ODOO_RPC_TIMEOUT', '30'))
             except Exception:
                 self.rpc_timeout = 30
 
-            self.jsonrpc_url = f"{self.url}/jsonrpc"
-            
-            # Autenticar con JSON-RPC
-            headers = {"Content-Type": "application/json"}
-            payload = {
-                "jsonrpc": "2.0",
-                "method": "call",
-                "params": {
-                    "service": "common",
-                    "method": "authenticate",
-                    "args": [self.db, self.username, self.password, {}]
-                },
-                "id": 1
-            }
+            # Usar XML-RPC (más estable y compatible con módulos de auditoría)
+            self.common_url = f"{self.url}/xmlrpc/2/common"
+            self.object_url = f"{self.url}/xmlrpc/2/object"
             
             try:
-                response = requests.post(self.jsonrpc_url, json=payload, headers=headers, timeout=self.rpc_timeout)
-                result = response.json()
+                logger.info(f"🔍 Intentando conectar a Odoo (XML-RPC):")
+                logger.info(f"   URL: {self.url}")
+                logger.info(f"   DB: {self.db}")
+                logger.info(f"   Usuario: {self.username}")
                 
-                if "result" in result and result["result"]:
-                    self.uid = result["result"]
-                    self.models = self._create_jsonrpc_models_proxy()
-                    logger.info(f"Odoo conectado (JSON-RPC). UID: {self.uid}")
+                # Autenticar con XML-RPC
+                common = xmlrpc.client.ServerProxy(self.common_url, allow_none=True)
+                self.uid = common.authenticate(self.db, self.username, self.password, {})
+                
+                if self.uid:
+                    # Crear proxy para ejecutar métodos
+                    self.models = xmlrpc.client.ServerProxy(self.object_url, allow_none=True)
+                    logger.info(f"✅ Odoo conectado exitosamente (XML-RPC). UID: {self.uid}")
                 else:
                     self.uid = None
                     self.models = None
-                    logger.warning("Autenticación falló. Continuando en modo offline.")
-            except requests.exceptions.Timeout:
-                logger.warning(f"Timeout al conectar a Odoo después de {self.rpc_timeout}s. Continuando en modo offline.")
+                    logger.warning("❌ Autenticación falló. Credenciales incorrectas.")
+                    logger.warning("Continuando en modo offline.")
+                    
+            except xmlrpc.client.Fault as fault:
+                logger.warning(f"❌ Error XML-RPC: {fault.faultString}")
+                logger.warning("Continuando en modo offline.")
                 self.uid = None
                 self.models = None
             except Exception as auth_e:
-                logger.warning(f"Error durante authenticate() a Odoo: {auth_e}")
+                logger.warning(f"❌ Error durante autenticación a Odoo: {auth_e}")
+                logger.warning("Continuando en modo offline.")
                 self.uid = None
+                self.models = None
                 self.models = None
                 
         except Exception as e:
@@ -126,84 +127,30 @@ class OdooManager:
             self.uid = None
             self.models = None
 
-    def _create_jsonrpc_models_proxy(self):
-        """Wrapper para mantener compatibilidad con código existente"""
-        class JSONRPCModelsProxy:
-            def __init__(self, manager):
-                self.manager = manager
-            
-            def execute_kw(self, db, uid, password, model, method, args, kwargs=None):
-                if kwargs is None:
-                    kwargs = {}
-                
-                headers = {"Content-Type": "application/json"}
-                payload = {
-                    "jsonrpc": "2.0",
-                    "method": "call",
-                    "params": {
-                        "service": "object",
-                        "method": "execute_kw",
-                        "args": [db, uid, password, model, method, args, kwargs]
-                    },
-                    "id": 1
-                }
-                
-                response = requests.post(
-                    self.manager.jsonrpc_url,
-                    json=payload,
-                    headers=headers,
-                    timeout=self.manager.rpc_timeout
-                )
-                result = response.json()
-                
-                return result.get("result") if "result" in result else None
-        
-        return JSONRPCModelsProxy(self)
-
     def authenticate_user(self, username, password):
         """Autenticar usuario contra Odoo y devolver sus datos si es exitoso."""
         try:
-            headers = {"Content-Type": "application/json"}
-            auth_payload = {
-                "jsonrpc": "2.0",
-                "method": "call",
-                "params": {
-                    "service": "common",
-                    "method": "authenticate",
-                    "args": [self.db, username, password, {}]
-                },
-                "id": 1
-            }
+            # Usar XML-RPC para autenticación
+            common = xmlrpc.client.ServerProxy(self.common_url, allow_none=True)
+            uid = common.authenticate(self.db, username, password, {})
             
-            response = requests.post(self.jsonrpc_url, json=auth_payload, headers=headers, timeout=self.rpc_timeout)
-            result = response.json()
-            
-            if "result" in result and result["result"]:
-                uid = result["result"]
-                print(f"✅ Autenticación exitosa para usuario: {username} (UID: {uid})")
+            if uid:
+                logger.info(f"✅ Autenticación exitosa para usuario: {username} (UID: {uid})")
                 
-                # Una vez autenticado, obtener el nombre del usuario
-                read_payload = {
-                    "jsonrpc": "2.0",
-                    "method": "call",
-                    "params": {
-                        "service": "object",
-                        "method": "execute_kw",
-                        "args": [self.db, uid, password, 'res.users', 'read', [uid], {'fields': ['name', 'login']}]
-                    },
-                    "id": 2
-                }
+                # Obtener datos del usuario
+                models = xmlrpc.client.ServerProxy(self.object_url, allow_none=True)
+                user_data = models.execute_kw(
+                    self.db, uid, password, 'res.users', 'read',
+                    [uid], {'fields': ['name', 'login']}
+                )
                 
-                response = requests.post(self.jsonrpc_url, json=read_payload, headers=headers, timeout=self.rpc_timeout)
-                result = response.json()
-                
-                if "result" in result and result["result"]:
-                    return result["result"][0]  # Devuelve {'id': uid, 'name': 'John Doe', 'login': '...'}
+                if user_data:
+                    return user_data[0]  # {'id': uid, 'name': 'John Doe', 'login': '...'}
                 else:
-                    # Fallback si no se pueden leer los datos del usuario
+                    # Fallback si no se pueden leer los datos
                     return {'id': uid, 'name': username, 'login': username}
             else:
-                print(f"❌ Credenciales incorrectas para usuario: {username}")
+                logger.warning(f"❌ Credenciales incorrectas para usuario: {username}")
                 return None
                 
         except Exception as e:

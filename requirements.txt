@@ -11,6 +11,7 @@ itsdangerous==2.2.0
 # === Authentication & Security ===
 Authlib==1.6.7
 cachetools==5.5.2
+Flask-Limiter==3.5.0
 
 # === HTTP & Network ===
 requests==2.32.5

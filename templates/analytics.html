@@ -277,7 +277,17 @@
                             {% endif %}
                         </td>
                         <td><span class="badge badge-primary">{{ user.visit_count }}</span></td>
-                        <td>{{ user.last_visit.strftime('%d/%m/%Y %H:%M') if user.last_visit else 'N/A' }}</td>
+                        <td>
+                            {% if user.last_visit %}
+                                {% if user.last_visit is string %}
+                                    {{ user.last_visit[:19].replace('T', ' ') }}
+                                {% else %}
+                                    {{ user.last_visit.strftime('%d/%m/%Y %H:%M') }}
+                                {% endif %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -377,7 +387,17 @@
                 <tbody>
                     {% for visit in stats.recent_visits %}
                     <tr>
-                        <td>{{ visit.visit_timestamp.strftime('%d/%m/%Y %H:%M:%S') if visit.visit_timestamp else 'N/A' }}</td>
+                        <td>
+                            {% if visit.visit_timestamp %}
+                                {% if visit.visit_timestamp is string %}
+                                    {{ visit.visit_timestamp[:19].replace('T', ' ') }}
+                                {% else %}
+                                    {{ visit.visit_timestamp.strftime('%d/%m/%Y %H:%M:%S') }}
+                                {% endif %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
                         <td>{{ visit.user_name or 'N/A' }}</td>
                         <td>{{ visit.page_title or visit.page_url }}</td>
                         <td>{{ visit.ip_address or 'N/A' }}</td>
@@ -411,7 +431,7 @@ function drawCharts() {
     
     dataDay.addRows([
         {% for day in stats.visits_by_day | reverse %}
-        ['{{ day.visit_date.strftime("%d/%m") if day.visit_date else "N/A" }}', {{ day.visit_count }}, {{ day.unique_users }}]{% if not loop.last %},{% endif %}
+        ['{% if day.visit_date is string %}{{ day.visit_date[5:10].replace('-', '/') }}{% else %}{{ day.visit_date.strftime("%d/%m") }}{% endif %}', {{ day.visit_count }}, {{ day.unique_users }}]{% if not loop.last %},{% endif %}
         {% endfor %}
     ]);
     
