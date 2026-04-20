@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block head %}
+<!-- Google Charts CDN -->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <style>
     .analytics-container {
         padding: 30px;
@@ -418,12 +420,15 @@ function changePeriod(days) {
 }
 
 // Google Charts
+console.log('Cargando Google Charts...');
 google.charts.load('current', {'packages':['corechart', 'bar']});
 google.charts.setOnLoadCallback(drawCharts);
 
 function drawCharts() {
+    console.log('Dibujando gráficos...');
     // Gráfico de Visitas por Día
     {% if stats.visits_by_day %}
+    console.log('Datos de visitas por día disponibles:', {{ stats.visits_by_day | length }});
     var dataDay = new google.visualization.DataTable();
     dataDay.addColumn('string', 'Fecha');
     dataDay.addColumn('number', 'Visitas');
@@ -446,8 +451,10 @@ function drawCharts() {
     
     var chartDay = new google.visualization.LineChart(document.getElementById('visitsPerDayChart'));
     chartDay.draw(dataDay, optionsDay);
+    console.log('Gráfico de visitas por día dibujado');
     {% else %}
-    document.getElementById('visitsPerDayChart').innerHTML = '<div class="no-data">No hay datos disponibles</div>';
+    console.log('No hay datos de visitas por día');
+    document.getElementById('visitsPerDayChart').innerHTML = '<div class="no-data" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #875A7B;">No hay datos disponibles para el período seleccionado</div>';
     {% endif %}
     
     // Gráfico de Visitas por Hora
@@ -473,10 +480,19 @@ function drawCharts() {
     
     var chartHour = new google.visualization.ColumnChart(document.getElementById('visitsPerHourChart'));
     chartHour.draw(dataHour, optionsHour);
+    console.log('Gráfico de visitas por hora dibujado');
     {% else %}
-    document.getElementById('visitsPerHourChart').innerHTML = '<div class="no-data">No hay datos disponibles</div>';
+    console.log('No hay datos de visitas por hora');
+    document.getElementById('visitsPerHourChart').innerHTML = '<div class="no-data" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #875A7B;">No hay datos disponibles para el período seleccionado</div>';
     {% endif %}
 }
+
+// Manejo de errores de carga de Google Charts
+window.addEventListener('error', function(e) {
+    if (e.message && e.message.includes('google')) {
+        console.error('Error cargando Google Charts:', e);
+    }
+});
 </script>
 {% endblock %}
 

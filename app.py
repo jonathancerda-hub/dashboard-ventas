@@ -112,8 +112,8 @@ def add_security_headers(response):
     # TODO: Hacer más estricto en producción moviendo scripts inline a archivos externos
     csp_directives = [
         "default-src 'self'",  # Por defecto solo recursos del mismo origen
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net https://code.jquery.com",  # Scripts + Google + CDNs + DataTables
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net",  # Estilos + Google Fonts + CDNs + DataTables
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net https://code.jquery.com",  # Scripts + Google + Google Charts + CDNs + DataTables
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net",  # Estilos + Google Fonts + Google Charts + CDNs + DataTables
         "img-src 'self' data: https: blob:",  # Imágenes: locales, data URIs, HTTPS y blobs
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",  # Fuentes de Google y CDNs
         "connect-src 'self' https://accounts.google.com https://*.google.com https://*.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net",  # Conexiones AJAX/fetch a Google y CDNs + DataTables
