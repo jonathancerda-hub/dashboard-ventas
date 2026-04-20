@@ -123,6 +123,12 @@ class PermissionsManager:
                 .maybe_single()\
                 .execute()
             
+            # Verificar que response no sea None
+            if response is None:
+                logger.warning(f"Response es None para {user_email} - posible problema con cliente Supabase")
+                return None
+            
+            # Verificar que response.data existe y tiene contenido
             if response.data:
                 role = response.data['role']
                 logger.debug(f"Rol de {user_email}: {role}")
