@@ -41,6 +41,33 @@
         border-radius: 4px;
     }
     
+    /* Sección de pestañas */
+    .nav-tabs {
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 2rem;
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+        margin-bottom: -2px;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: #0d6efd;
+        border-bottom-color: #dee2e6;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+        background: transparent;
+    }
+    
     .admin-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -94,6 +121,26 @@
         color: #616161;
     }
     
+    .stat-icon.login-success {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+    
+    .stat-icon.login-failed {
+        background: #ffebee;
+        color: #c62828;
+    }
+    
+    .stat-icon.logout {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+    
+    .stat-icon.timeout {
+        background: #fff3e0;
+        color: #ef6c00;
+    }
+    
     .stat-content {
         flex: 1;
     }
@@ -110,6 +157,31 @@
         font-size: 0.875rem;
         color: #6c757d;
         font-weight: 400;
+    }
+    
+    .stat-content .badge {
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .chart-container h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #212529;
+    }
+    
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
     }
     
     .filter-section {
@@ -150,6 +222,7 @@
         padding: 1.5rem;
         border-radius: 4px;
         border: 1px solid #dee2e6;
+        margin-bottom: 2rem;
     }
     
     .table-container h3 {
@@ -172,7 +245,8 @@
         margin-bottom: 1rem;
     }
     
-    #auditTable thead th {
+    #auditTable thead th,
+    #failedAttemptsTable thead th {
         background: white;
         border-bottom: 2px solid #dee2e6;
         border-top: 1px solid #dee2e6;
@@ -188,38 +262,178 @@
         box-shadow: 0 2px 2px -1px rgba(0,0,0,0.05);
     }
     
-    #auditTable tbody td {
+    #auditTable tbody td,
+    #failedAttemptsTable tbody td {
         vertical-align: middle;
-        padding: 0.75rem;
+        padding: 1rem 0.75rem;
         font-size: 0.875rem;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid #e9ecef;
     }
     
-    #auditTable tbody tr {
-        transition: background-color 0.15s ease;
+    #auditTable tbody tr,
+    #failedAttemptsTable tbody tr {
+        transition: all 0.2s ease;
     }
     
-    #auditTable tbody tr:hover {
+    #auditTable tbody tr:hover,
+    #failedAttemptsTable tbody tr:hover {
         background-color: #f8f9fa;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    /* Anchos específicos de columnas */
+    #auditTable th:nth-child(1), #auditTable td:nth-child(1) { width: 130px; min-width: 130px; } /* Fecha */
+    #auditTable th:nth-child(2), #auditTable td:nth-child(2) { width: 100px; min-width: 100px; } /* Acción */
+    #auditTable th:nth-child(3), #auditTable td:nth-child(3) { width: 22%; min-width: 200px; } /* Admin */
+    #auditTable th:nth-child(4), #auditTable td:nth-child(4) { width: 22%; min-width: 200px; } /* Usuario */
+    #auditTable th:nth-child(5), #auditTable td:nth-child(5) { width: 20%; min-width: 180px; } /* Cambio */
+    #auditTable th:nth-child(6), #auditTable td:nth-child(6) { width: 180px; min-width: 180px; } /* Detalles */
+    
+    /* Columna de fecha mejorada */
+    .date-cell {
+        min-width: 130px;
+    }
+    
+    .date-cell .date-display {
+        font-weight: 600;
+        color: #212529;
+        font-size: 0.875rem;
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+    
+    .date-cell .time-display {
+        color: #6c757d;
+        font-size: 0.813rem;
+        display: block;
+    }
+    
+    /* Badge de acción mejorado */
+    .action-badge {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    
+    /* Información de usuario */
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #495057;
+        font-size: 0.875rem;
+    }
+    
+    .user-info i {
+        color: #6c757d;
+        font-size: 1rem;
+    }
+    
+    .user-email {
+        font-family: 'Courier New', monospace;
+        font-size: 0.813rem;
+        color: #495057;
+    }
+    
+    /* Badges de roles con colores distintivos */
+    .role-badge {
+        font-size: 0.813rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 4px;
+        font-weight: 600;
+        display: inline-block;
+        white-space: nowrap;
+    }
+    
+    .role-badge.admin_full {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .role-badge.admin_export {
+        background: #fd7e14;
+        color: white;
+    }
+    
+    .role-badge.analytics_viewer {
+        background: #0dcaf0;
+        color: #000;
+    }
+    
+    .role-badge.user_basic {
+        background: #6c757d;
+        color: white;
+    }
+    
+    /* Contenedor de cambio de rol mejorado */
+    .role-change {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+    }
+    
+    .role-change i.bi-arrow-right {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin: 0 0.25rem;
+    }
+    
+    .change-label {
+        display: none; /* Ocultar para diseño más compacto */
     }
     
     .log-details {
         font-size: 0.9rem;
-        color: #666;
+        color: #495057;
+        line-height: 1.4;
     }
     
     .log-metadata {
-        font-size: 0.85rem;
-        color: #999;
         display: flex;
-        gap: 1rem;
-        margin-top: 0.3rem;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+    }
+    
+    .ip-address {
+        font-family: 'Courier New', monospace;
+        font-size: 0.75rem;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        background: #f8f9fa;
+        border-radius: 3px;
+        white-space: nowrap;
+    }
+    
+    .ip-address i {
+        font-size: 0.75rem;
+    }
+    
+    .details-btn {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+    
+    .details-btn i {
+        font-size: 0.75rem;
     }
     
     .badge {
         font-size: 0.813rem;
         padding: 0.375rem 0.75rem;
-        border-radius: 3px;
+        border-radius: 4px;
         font-weight: 500;
     }
     
@@ -228,16 +442,37 @@
         -webkit-overflow-scrolling: touch;
         position: relative;
     }
+    
+    .alert-security {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 2rem;
+    }
+    
+    .alert-security h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #856404;
+    }
+    
+    .alert-security p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: #856404;
+    }
 </style>
 {% endblock %}
-
 {% block content %}
 <div class="admin-container">
     <!-- Header -->
     <div class="admin-header">
         <div>
-            <h1><i class="bi bi-clock-history"></i> Historial de Auditoría</h1>
-            <p>Seguimiento completo de cambios en permisos de usuarios</p>
+            <h1><i class="bi bi-shield-check"></i> Dashboard de Seguridad y Auditoría</h1>
+            <p>Monitoreo completo de accesos y cambios en el sistema</p>
         </div>
         <div>
             <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">
@@ -246,172 +481,364 @@
         </div>
     </div>
     
-    <!-- Estadísticas -->
-    <div class="admin-stats">
-        <div class="stat-card">
-            <div class="stat-icon creates">
-                <i class="bi bi-person-plus"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ stats.total_creates }}</h3>
-                <p>Usuarios Creados</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon updates">
-                <i class="bi bi-pencil"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ stats.total_updates }}</h3>
-                <p>Actualizaciones de Rol</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon deletes">
-                <i class="bi bi-trash"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ stats.total_deletes }}</h3>
-                <p>Usuarios Eliminados</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon total">
-                <i class="bi bi-list-ul"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ stats.total_logs }}</h3>
-                <p>Total de Cambios</p>
-            </div>
-        </div>
-    </div>
+    <!-- Pestañas de navegación -->
+    <ul class="nav nav-tabs" id="auditTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button" role="tab">
+                <i class="bi bi-shield-lock"></i> Seguridad (24h)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions" type="button" role="tab">
+                <i class="bi bi-people"></i> Cambios de Permisos
+            </button>
+        </li>
+    </ul>
     
-    <!-- Filtros -->
-    <div class="table-container">
-        <h3><i class="bi bi-table"></i> Registro de Cambios</h3>
-        <p class="text-muted">Mostrando {{ logs | length }} cambios</p>
-        
-        <div class="filter-section">
-            <form method="GET" action="{{ url_for('admin_audit_log') }}" class="row g-3 align-items-center">
-                <div class="col-auto" style="min-width: 180px;">
-                    <select class="form-select" name="days" id="days">
-                        <option value="7" {% if days == 7 %}selected{% endif %}>Últimos 7 días</option>
-                        <option value="30" {% if days == 30 %}selected{% endif %}>Últimos 30 días</option>
-                        <option value="90" {% if days == 90 %}selected{% endif %}>Últimos 90 días</option>
-                        <option value="365" {% if days == 365 %}selected{% endif %}>Último año</option>
-                    </select>
+    <div class="tab-content" id="auditTabsContent">
+        <!-- TAB 1: SEGURIDAD (LOGIN/LOGOUT) -->
+        <div class="tab-pane fade show active" id="security" role="tabpanel">
+            
+            <!-- Alerta si hay muchos intentos fallidos -->
+            {% if security_stats.login_failed > 10 %}
+            <div class="alert-security">
+                <h5><i class="bi bi-exclamation-triangle-fill"></i> Alerta de Seguridad</h5>
+                <p>Se han detectado <strong>{{ security_stats.login_failed }} intentos de login fallidos</strong> en las últimas 24 horas. Revise la tabla de intentos fallidos para más detalles.</p>
+            </div>
+            {% endif %}
+            
+            <!-- Estadísticas de Seguridad (Últimas 24h) -->
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <div class="stat-icon login-success">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ security_stats.login_success }}</h3>
+                        <p>Login Exitosos</p>
+                        <span class="badge bg-success">{{ security_stats.success_rate }}% tasa de éxito</span>
+                    </div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-icon login-failed">
+                        <i class="bi bi-x-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ security_stats.login_failed }}</h3>
+                        <p>Intentos Fallidos</p>
+                        {% if security_stats.login_failed > 0 %}
+                        <span class="badge bg-danger">Requiere atención</span>
+                        {% else %}
+                        <span class="badge bg-success">Sin problemas</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon logout">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ security_stats.logout_manual }}</h3>
+                        <p>Cierres de Sesión</p>
+                        <span class="badge bg-secondary">Manuales</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon timeout">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ security_stats.session_timeout }}</h3>
+                        <p>Sesiones Expiradas</p>
+                        <span class="badge bg-warning">Timeouts</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gráfica de Timeline de Login/Logout -->
+            <div class="chart-container">
+                <h4><i class="bi bi-graph-up"></i> Actividad de Autenticación (Últimas 24 horas)</h4>
+                <div class="chart-wrapper">
+                    <canvas id="loginTimelineChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Tabla de Intentos Fallidos Recientes -->
+            {% if failed_attempts %}
+            <div class="table-container">
+                <h3><i class="bi bi-exclamation-triangle"></i> Intentos de Login Fallidos Recientes</h3>
+                <p class="text-muted">Últimos {{ failed_attempts | length }} intentos fallidos detectados</p>
                 
-                <div class="col-auto" style="min-width: 200px;">
-                    <select class="form-select" name="action" id="action">
-                        <option value="">Todas las acciones</option>
-                        <option value="CREATE" {% if current_action == 'CREATE' %}selected{% endif %}>Creaciones</option>
-                        <option value="UPDATE" {% if current_action == 'UPDATE' %}selected{% endif %}>Actualizaciones</option>
-                        <option value="DELETE" {% if current_action == 'DELETE' %}selected{% endif %}>Eliminaciones</option>
-                        <option value="DEACTIVATE" {% if current_action == 'DEACTIVATE' %}selected{% endif %}>Desactivaciones</option>
-                        <option value="ACTIVATE" {% if current_action == 'ACTIVATE' %}selected{% endif %}>Reactivaciones</option>
-                    </select>
+                <div class="table-responsive">
+                    <table id="failedAttemptsTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha y Hora</th>
+                                <th>Email Intentado</th>
+                                <th>IP Address</th>
+                                <th>Razón del Fallo</th>
+                                <th>Mensaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attempt in failed_attempts %}
+                            <tr>
+                                <td class="date-cell">
+                                    <span class="date-display">{{ attempt.timestamp | to_peru_date }}</span>
+                                    <span class="time-display"><i class="bi bi-clock"></i> {{ attempt.timestamp | to_peru_time_only }}</span>
+                                </td>
+                                <td>
+                                    <div class="user-info">
+                                        <i class="bi bi-person"></i>
+                                        <span class="user-email">{{ attempt.attempted_email }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="ip-address">
+                                        <i class="bi bi-geo-alt"></i> {{ attempt.ip_address }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if attempt.failure_reason == 'user_not_authorized' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-shield-x"></i> Sin Autorización</span>
+                                    {% elif attempt.failure_reason == 'oauth_error' %}
+                                    <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Error OAuth</span>
+                                    {% elif attempt.failure_reason == 'permission_check_error' %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Error de Permisos</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ attempt.failure_reason }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="text-muted" style="font-size: 0.813rem;">{{ attempt.error_message[:80] }}{% if attempt.error_message|length > 80 %}...{% endif %}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> <strong>Sin intentos fallidos</strong> en las últimas 24 horas. Todo en orden.
+            </div>
+            {% endif %}
+            
+            <!-- Top IPs con más intentos fallidos -->
+            {% if security_stats.top_failed_ips %}
+            <div class="table-container">
+                <h3><i class="bi bi-router"></i> IPs con Más Intentos Fallidos</h3>
+                <p class="text-muted">Top 5 direcciones IP sospechosas</p>
                 
-                <div class="col">
-                    <input type="text" class="form-control" name="admin" id="admin" 
-                           value="{{ current_admin }}" placeholder="Filtrar por administrador...">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>IP Address</th>
+                                <th>Intentos Fallidos</th>
+                                <th>Nivel de Riesgo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ip_data in security_stats.top_failed_ips %}
+                            <tr>
+                                <td><code>{{ ip_data.ip }}</code></td>
+                                <td><strong>{{ ip_data.count }}</strong></td>
+                                <td>
+                                    {% if ip_data.count >= 5 %}
+                                    <span class="badge bg-danger">Alto</span>
+                                    {% elif ip_data.count >= 3 %}
+                                    <span class="badge bg-warning">Medio</span>
+                                    {% else %}
+                                    <span class="badge bg-info">Bajo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i> Filtrar
-                    </button>
-                </div>
-            </form>
+            </div>
+            {% endif %}
+            
         </div>
         
-        <div class="table-responsive">
-            <table id="auditTable" class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Fecha y Hora</th>
-                        <th>Acción</th>
-                        <th>Administrador</th>
-                        <th>Usuario Afectado</th>
-                        <th>Cambio</th>
-                        <th>Detalles</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr>
-                        <td>
-                            <strong>{{ log.timestamp[:10] }}</strong><br>
-                            <small class="text-muted">{{ log.timestamp[11:19] }}</small>
-                        </td>
-                        <td>
-                            <span class="badge bg-{{ log.action_class if log.action_class else 'secondary' }}">
-                                {{ log.action }}
-                            </span>
-                        </td>
-                        <td>
-                            <i class="bi bi-person-badge"></i>
-                            {{ log.admin_email }}
-                        </td>
-                        <td>
-                            <i class="bi bi-person"></i>
-                            {{ log.target_user_email }}
-                        </td>
-                        <td>
-                            <div class="log-details">
-                                {% if log.action == 'CREATE' %}
-                                    <span class="badge bg-success">{{ log.new_value }}</span>
-                                    <small class="text-muted d-block">Rol asignado</small>
-                                {% elif log.action == 'UPDATE' %}
-                                    <span class="badge bg-secondary">{{ log.old_value }}</span>
-                                    <i class="bi bi-arrow-right"></i>
-                                    <span class="badge bg-primary">{{ log.new_value }}</span>
-                                    <small class="text-muted d-block">Cambio de rol</small>
-                                {% elif log.action in ['DELETE', 'DEACTIVATE'] %}
-                                    <span class="text-danger">Usuario eliminado</span>
-                                {% elif log.action == 'ACTIVATE' %}
-                                    <span class="text-success">Usuario reactivado</span>
-                                {% endif %}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="log-metadata">
-                                {% if log.ip_address %}
-                                <span title="IP Address">
-                                    <i class="bi bi-geo-alt"></i> {{ log.ip_address }}
-                                </span>
-                                {% endif %}
-                                {% if log.details %}
-                                <button type="button" 
-                                        class="btn btn-sm btn-outline-info"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#detailsModal{{ log.id }}"
-                                        title="Ver detalles">
-                                    <i class="bi bi-info-circle"></i>
-                                </button>
-                                
-                                <!-- Modal de detalles -->
-                                <div class="modal fade" id="detailsModal{{ log.id }}" tabindex="-1">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Detalles del Cambio</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <pre>{{ log.details | tojson(indent=2) }}</pre>
+        <!-- TAB 2: CAMBIOS DE PERMISOS -->
+        <div class="tab-pane fade" id="permissions" role="tabpanel">
+            
+            <!-- Estadísticas de Permisos -->
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <div class="stat-icon creates">
+                        <i class="bi bi-person-plus"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_creates }}</h3>
+                        <p>Usuarios Creados</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon updates">
+                        <i class="bi bi-pencil"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_updates }}</h3>
+                        <p>Actualizaciones de Rol</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon deletes">
+                        <i class="bi bi-trash"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_deletes }}</h3>
+                        <p>Usuarios Eliminados</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon total">
+                        <i class="bi bi-list-ul"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_logs }}</h3>
+                        <p>Total de Cambios</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabla de Cambios de Permisos -->
+            <div class="table-container">
+                <h3><i class="bi bi-table"></i> Registro de Cambios de Permisos</h3>
+                <p class="text-muted">Mostrando {{ logs | length }} cambios</p>
+                
+                <div class="filter-section">
+                    <form method="GET" action="{{ url_for('admin_audit_log') }}" class="row g-3 align-items-center">
+                        <div class="col-auto" style="min-width: 180px;">
+                            <select class="form-select" name="days" id="days">
+                                <option value="7" {% if days == 7 %}selected{% endif %}>Últimos 7 días</option>
+                                <option value="30" {% if days == 30 %}selected{% endif %}>Últimos 30 días</option>
+                                <option value="90" {% if days == 90 %}selected{% endif %}>Últimos 90 días</option>
+                                <option value="365" {% if days == 365 %}selected{% endif %}>Último año</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-auto" style="min-width: 200px;">
+                            <select class="form-select" name="action" id="action">
+                                <option value="">Todas las acciones</option>
+                                <option value="CREATE" {% if current_action == 'CREATE' %}selected{% endif %}>Creaciones</option>
+                                <option value="UPDATE" {% if current_action == 'UPDATE' %}selected{% endif %}>Actualizaciones</option>
+                                <option value="DELETE" {% if current_action == 'DELETE' %}selected{% endif %}>Eliminaciones</option>
+                                <option value="DEACTIVATE" {% if current_action == 'DEACTIVATE' %}selected{% endif %}>Desactivaciones</option>
+                                <option value="ACTIVATE" {% if current_action == 'ACTIVATE' %}selected{% endif %}>Reactivaciones</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col">
+                            <input type="text" class="form-control" name="admin" id="admin" 
+                                   value="{{ current_admin }}" placeholder="Filtrar por administrador...">
+                        </div>
+                        
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i> Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="auditTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha y Hora</th>
+                                <th>Acción</th>
+                                <th>Administrador</th>
+                                <th>Usuario Afectado</th>
+                                <th>Cambio</th>
+                                <th>Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="date-cell">
+                                    <span class="date-display">{{ log.timestamp | to_peru_date }}</span>
+                                    <span class="time-display"><i class="bi bi-clock"></i> {{ log.timestamp | to_peru_time_only }}</span>
+                                </td>
+                                <td>
+                                    <span class="action-badge bg-{{ log.action_class if log.action_class else 'secondary' }}">
+                                        {{ log.action }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="user-info">
+                                        <i class="bi bi-person-badge"></i>
+                                        <span class="user-email">{{ log.admin_email }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="user-info">
+                                        <i class="bi bi-person"></i>
+                                        <span class="user-email">{{ log.target_user_email }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if log.action == 'CREATE' %}
+                                        <div class="role-change">
+                                            <span class="role-badge {{ log.new_value }}">{{ log.new_value | role_display }}</span>
+                                        </div>
+                                    {% elif log.action == 'UPDATE' %}
+                                        <div class="role-change">
+                                            <span class="role-badge {{ log.old_value }}">{{ log.old_value | role_display }}</span>
+                                            <i class="bi bi-arrow-right"></i>
+                                            <span class="role-badge {{ log.new_value }}">{{ log.new_value | role_display }}</span>
+                                        </div>
+                                    {% elif log.action in ['DELETE', 'DEACTIVATE'] %}
+                                        <span class="badge bg-danger"><i class="bi bi-trash"></i> Eliminado</span>
+                                    {% elif log.action == 'ACTIVATE' %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Reactivado</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="log-metadata">
+                                        {% if log.ip_address %}
+                                        <span class="ip-address" title="Dirección IP del administrador">
+                                            <i class="bi bi-geo-alt"></i>{{ log.ip_address }}
+                                        </span>
+                                        {% endif %}
+                                        {% if log.details %}
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-info details-btn"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#detailsModal{{ log.id }}"
+                                                title="Ver detalles completos">
+                                            <i class="bi bi-info-circle"></i> Detalles
+                                        </button>
+                                        
+                                        <!-- Modal de detalles -->
+                                        <div class="modal fade" id="detailsModal{{ log.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Detalles del Cambio</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <pre>{{ log.details | tojson(indent=2) }}</pre>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
+                                        {% endif %}
                                     </div>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
         </div>
     </div>
 </div>
@@ -423,6 +850,8 @@
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<!-- Chart.js para gráficas -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
 $(document).ready(function() {
@@ -432,16 +861,143 @@ $(document).ready(function() {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
     
-    // Inicializar DataTable
+    // Inicializar DataTable para tabla de permisos
     $('#auditTable').DataTable({
         responsive: true,
         language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+            url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
         },
         order: [[0, 'desc']], // Ordenar por fecha descendente
         pageLength: 50,
         dom: 'lrtip'
     });
+    
+    // Inicializar DataTable para tabla de intentos fallidos
+    $('#failedAttemptsTable').DataTable({
+        responsive: true,
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        },
+        order: [[0, 'desc']], // Ordenar por fecha descendente
+        pageLength: 10,
+        dom: 'lrtip'
+    });
+    
+    // 🆕 Gráfica de Timeline de Login/Logout con Chart.js
+    var loginTimelineData = {{ login_timeline | tojson | safe }};
+    
+    if (loginTimelineData && loginTimelineData.length > 0) {
+        var ctx = document.getElementById('loginTimelineChart').getContext('2d');
+        
+        // Extraer labels (horas) y datos
+        var labels = loginTimelineData.map(function(item) {
+            // Formatear hora: "2026-04-21 10:00" -> "10:00"
+            return item.hour.split(' ')[1];
+        });
+        
+        var loginSuccessData = loginTimelineData.map(function(item) {
+            return item.login_success;
+        });
+        
+        var loginFailedData = loginTimelineData.map(function(item) {
+            return item.login_failed;
+        });
+        
+        var logoutData = loginTimelineData.map(function(item) {
+            return item.logout;
+        });
+        
+        var timeoutData = loginTimelineData.map(function(item) {
+            return item.timeout;
+        });
+        
+        var loginTimelineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Login Exitosos',
+                        data: loginSuccessData,
+                        borderColor: '#2e7d32',
+                        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Login Fallidos',
+                        data: loginFailedData,
+                        borderColor: '#c62828',
+                        backgroundColor: 'rgba(198, 40, 40, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Logout',
+                        data: logoutData,
+                        borderColor: '#7b1fa2',
+                        backgroundColor: 'rgba(123, 31, 162, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Timeouts',
+                        data: timeoutData,
+                        borderColor: '#ef6c00',
+                        backgroundColor: 'rgba(239, 108, 0, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Hora del día'
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Número de eventos'
+                        },
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

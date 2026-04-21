@@ -83,6 +83,108 @@ UTC_TZ = pytz.UTC
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
+# --- Filtros Personalizados de Jinja2 ---
+
+@app.template_filter('to_peru_time')
+def to_peru_time(utc_timestamp_str):
+    """
+    Convierte timestamp UTC (ISO string) a hora de Perú (UTC-5).
+    
+    Args:
+        utc_timestamp_str: String ISO 8601 en UTC (ej: "2026-04-21T15:57:42+00:00")
+    
+    Returns:
+        str: Fecha y hora en formato "DD/MM/YYYY HH:MM:SS" (hora de Perú)
+    """
+    try:
+        # Parse del timestamp UTC
+        if isinstance(utc_timestamp_str, str):
+            # Remover 'Z' o '+00:00' y parsear
+            utc_timestamp_str = utc_timestamp_str.replace('Z', '+00:00')
+            utc_dt = datetime.fromisoformat(utc_timestamp_str)
+        else:
+            utc_dt = utc_timestamp_str
+        
+        # Si no tiene timezone, asumir UTC
+        if utc_dt.tzinfo is None:
+            utc_dt = UTC_TZ.localize(utc_dt)
+        
+        # Convertir a hora de Perú
+        peru_dt = utc_dt.astimezone(PERU_TZ)
+        
+        # Formatear como "21/04/2026 10:57:42"
+        return peru_dt.strftime('%d/%m/%Y %H:%M:%S')
+    except Exception as e:
+        logger.error(f"Error convirtiendo timestamp a hora de Perú: {e}")
+        return utc_timestamp_str  # Retornar original si falla
+
+@app.template_filter('to_peru_date')
+def to_peru_date(utc_timestamp_str):
+    """
+    Convierte timestamp UTC a solo fecha en hora de Perú.
+    
+    Returns:
+        str: Fecha en formato "DD/MM/YYYY"
+    """
+    try:
+        if isinstance(utc_timestamp_str, str):
+            utc_timestamp_str = utc_timestamp_str.replace('Z', '+00:00')
+            utc_dt = datetime.fromisoformat(utc_timestamp_str)
+        else:
+            utc_dt = utc_timestamp_str
+        
+        if utc_dt.tzinfo is None:
+            utc_dt = UTC_TZ.localize(utc_dt)
+        
+        peru_dt = utc_dt.astimezone(PERU_TZ)
+        return peru_dt.strftime('%d/%m/%Y')
+    except Exception as e:
+        logger.error(f"Error convirtiendo fecha: {e}")
+        return utc_timestamp_str
+
+@app.template_filter('to_peru_time_only')
+def to_peru_time_only(utc_timestamp_str):
+    """
+    Convierte timestamp UTC a solo hora en hora de Perú.
+    
+    Returns:
+        str: Hora en formato "HH:MM:SS"
+    """
+    try:
+        if isinstance(utc_timestamp_str, str):
+            utc_timestamp_str = utc_timestamp_str.replace('Z', '+00:00')
+            utc_dt = datetime.fromisoformat(utc_timestamp_str)
+        else:
+            utc_dt = utc_timestamp_str
+        
+        if utc_dt.tzinfo is None:
+            utc_dt = UTC_TZ.localize(utc_dt)
+        
+        peru_dt = utc_dt.astimezone(PERU_TZ)
+        return peru_dt.strftime('%H:%M:%S')
+    except Exception as e:
+        logger.error(f"Error convirtiendo hora: {e}")
+        return utc_timestamp_str
+
+@app.template_filter('role_display')
+def role_display(role_code):
+    """
+    Convierte código de rol a nombre legible en español.
+    
+    Args:
+        role_code: Código del rol (admin_full, user_basic, etc)
+    
+    Returns:
+        str: Nombre del rol en español
+    """
+    role_names = {
+        'admin_full': 'Admin Full',
+        'admin_export': 'Admin Export',
+        'analytics_viewer': 'Analytics',
+        'user_basic': 'Usuario Básico'
+    }
+    return role_names.get(role_code, role_code)
+
 # --- Security Headers y CORS (A04: Insecure Design) ---
 
 @app.after_request
@@ -210,6 +312,7 @@ def verify_session_expiration():
     
     try:
         now = datetime.now(UTC_TZ)
+        username = session.get('username', 'unknown')
         
         # 1. Verificar TIMEOUT ABSOLUTO (desde login)
         login_time = datetime.fromisoformat(session['login_time'])
@@ -220,7 +323,16 @@ def verify_session_expiration():
         max_session_hours = int(os.getenv('MAX_ABSOLUTE_SESSION_HOURS', '8'))
         
         if elapsed_since_login > timedelta(hours=max_session_hours):
-            logger.warning(f"Sesión expirada por timeout absoluto para {session.get('username')} (duración: {elapsed_since_login})")
+            logger.warning(f"Sesión expirada por timeout absoluto para {username} (duración: {elapsed_since_login})")
+            
+            # Registrar timeout absoluto en auditoría
+            audit_logger.log_session_timeout(
+                user_email=username,
+                timeout_type='absolute_limit',
+                last_activity=session.get('last_activity_time'),
+                ip_address=request.remote_addr if request else None
+            )
+            
             return False
         
         # 2. Verificar TIMEOUT DE INACTIVIDAD (desde última actividad)
@@ -233,7 +345,16 @@ def verify_session_expiration():
             max_idle_minutes = int(os.getenv('MAX_IDLE_MINUTES', '15'))
             
             if elapsed_since_activity > timedelta(minutes=max_idle_minutes):
-                logger.warning(f"Sesión expirada por inactividad para {session.get('username')} (inactivo: {elapsed_since_activity})")
+                logger.warning(f"Sesión expirada por inactividad para {username} (inactivo: {elapsed_since_activity})")
+                
+                # Registrar timeout por inactividad en auditoría
+                audit_logger.log_session_timeout(
+                    user_email=username,
+                    timeout_type='inactivity',
+                    last_activity=session.get('last_activity_time'),
+                    ip_address=request.remote_addr if request else None
+                )
+                
                 return False
         
         return True
@@ -579,7 +700,7 @@ def admin_reactivate_user(email):
 @require_admin_full
 def admin_audit_log():
     """
-    Dashboard de auditoría con historial completo de cambios.
+    Dashboard de auditoría con historial completo de cambios y métricas de seguridad.
     Solo accesible por admin_full.
     """
     try:
@@ -588,21 +709,53 @@ def admin_audit_log():
         action = request.args.get('action', '')
         admin_email = request.args.get('admin', '')
         
-        # Obtener logs filtrados
-        logs = audit_logger.get_filtered_logs(days=days, action=action, admin_email=admin_email)
+        logger.info(f"[AUDIT-LOG] Cargando dashboard de auditoría - days={days}, action={action}, admin={admin_email}")
         
-        # Estadísticas
+        # Obtener logs de PERMISOS solamente (excluye eventos de autenticación)
+        logger.info("[AUDIT-LOG] Obteniendo logs de permisos...")
+        permissions_logs = audit_logger.get_filtered_logs(
+            days=days, 
+            action=action, 
+            admin_email=admin_email,
+            exclude_auth_events=True  # 🆕 Solo permisos (CREATE, UPDATE, DELETE, etc)
+        )
+        logger.info(f"[AUDIT-LOG] ✓ Logs de permisos obtenidos: {len(permissions_logs)} registros")
+        
+        # Estadísticas generales de permisos
+        logger.info("[AUDIT-LOG] Obteniendo estadísticas generales...")
         stats = audit_logger.get_statistics()
+        logger.info(f"[AUDIT-LOG] ✓ Stats obtenidas")
         
+        # 🆕 Estadísticas de seguridad (login/logout) - últimas 24 horas
+        logger.info("[AUDIT-LOG] Obteniendo estadísticas de seguridad...")
+        security_stats = audit_logger.get_security_stats(hours=24)
+        logger.info(f"[AUDIT-LOG] ✓ Security stats: {security_stats}")
+        
+        # 🆕 Timeline de login/logout para gráfica - últimas 24 horas
+        logger.info("[AUDIT-LOG] Obteniendo timeline de login...")
+        login_timeline = audit_logger.get_login_timeline(hours=24)
+        logger.info(f"[AUDIT-LOG] ✓ Login timeline: {len(login_timeline)} horas")
+        
+        # 🆕 Intentos fallidos recientes (últimos 10)
+        logger.info("[AUDIT-LOG] Obteniendo intentos fallidos...")
+        failed_attempts = audit_logger.get_recent_failed_attempts(limit=10)
+        logger.info(f"[AUDIT-LOG] ✓ Failed attempts: {len(failed_attempts)} registros")
+        
+        logger.info("[AUDIT-LOG] Renderizando template audit_log.html...")
         return render_template('admin/audit_log.html',
-                             logs=logs,
+                             logs=permissions_logs,  # 🆕 Cambiado: ahora solo permisos
                              stats=stats,
+                             security_stats=security_stats,
+                             login_timeline=login_timeline,
+                             failed_attempts=failed_attempts,
                              days=days,
                              current_action=action,
                              current_admin=admin_email)
     except Exception as e:
-        logger.error(f"Error en ruta /admin/audit-log: {e}", exc_info=True)
-        flash('Error al cargar historial de auditoría', 'danger')
+        logger.error(f"❌ Error en ruta /admin/audit-log: {e}", exc_info=True)
+        logger.error(f"❌ Tipo de error: {type(e).__name__}")
+        logger.error(f"❌ Args del error: {e.args}")
+        flash(f'Error al cargar historial de auditoría: {str(e)}', 'danger')
         return redirect(url_for('admin_users'))
 
 # --- Funciones Auxiliares ---
@@ -664,29 +817,79 @@ def authorize():
                     session['user_role'] = role  # Guardar rol en sesión
                     session['login_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de login
                     session['last_activity_time'] = datetime.now(UTC_TZ).isoformat()  # Timestamp de última actividad
+                    session['session_id'] = os.urandom(16).hex()  # ID único de sesión
+                    
+                    # Registrar login exitoso en auditoría
+                    audit_logger.log_login_success(
+                        user_email=email,
+                        user_name=name,
+                        role=role,
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent'),
+                        oauth_provider='google',
+                        session_id=session.get('session_id')
+                    )
+                    
                     logger.info(f"Usuario autenticado: {email} (rol: {role})")
                     flash('¡Inicio de sesión exitoso!', 'success')
                     return redirect(url_for('loading'))
                 else:
                     # Usuario autenticado pero no autorizado
                     logger.warning(f"Intento de acceso denegado: {email} (sin rol en sistema)")
+                    
+                    # Registrar intento fallido de login en auditoría
+                    audit_logger.log_login_failed(
+                        attempted_email=email,
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent'),
+                        failure_reason='user_not_authorized',
+                        error_message=f'El correo {email} no tiene permiso para acceder a esta aplicación.'
+                    )
+                    
                     flash(f'El correo {email} no tiene permiso para acceder a esta aplicación.', 'warning')
                     return redirect(url_for('login'))
                     
             except Exception as e:
                 logger.error(f"Error verificando permisos para {email}: {e}", exc_info=True)
-                flash('Error al verificar permisos. Por favor, contacte al administrador.', 'danger')
-                return redirect(url_for('login'))
-            except Exception as e:
-                logger.error(f"Error verificando permisos: {e}", exc_info=True)
+                
+                # Registrar error en verificación de permisos
+                audit_logger.log_login_failed(
+                    attempted_email=email,
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent'),
+                    failure_reason='permission_check_error',
+                    error_message=str(e)
+                )
+                
                 flash('Error al verificar permisos. Por favor, contacte al administrador.', 'danger')
                 return redirect(url_for('login'))
         else:
+            # No se pudo obtener información del usuario desde Google
+            logger.warning(f"OAuth error: No se pudo obtener información del usuario")
+            
+            audit_logger.log_login_failed(
+                attempted_email=None,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent'),
+                failure_reason='oauth_userinfo_error',
+                error_message='No se pudo obtener información del usuario de Google'
+            )
+            
             flash('No se pudo obtener información del usuario de Google.', 'danger')
             return redirect(url_for('login'))
             
     except Exception as e:
         logger.error(f"Error en autenticación OAuth: {e}", exc_info=True)
+        
+        # Registrar error general de OAuth
+        audit_logger.log_login_failed(
+            attempted_email=None,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+            failure_reason='oauth_error',
+            error_message=str(e)
+        )
+        
         flash('Error en la autenticación. Por favor, intente nuevamente.', 'danger')
         return redirect(url_for('login'))
 
@@ -699,7 +902,40 @@ def desing_login():
 def logout():
     """Cerrar sesión del usuario con logging de seguridad"""
     username = session.get('username', 'unknown')
-    logger.info(f"Logout: {username} cerró sesión desde {request.remote_addr}")
+    login_time_str = session.get('login_time')
+    session_id = session.get('session_id')
+    
+    # Calcular duración de la sesión
+    session_duration = None
+    if login_time_str:
+        try:
+            login_time = datetime.fromisoformat(login_time_str)
+            if login_time.tzinfo is None:
+                login_time = UTC_TZ.localize(login_time)
+            
+            logout_time = datetime.now(UTC_TZ)
+            duration_delta = logout_time - login_time
+            
+            # Formatear duración como HH:MM:SS
+            hours, remainder = divmod(duration_delta.total_seconds(), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            session_duration = f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+        except Exception as e:
+            logger.warning(f"Error calculando duración de sesión: {e}")
+    
+    # Registrar logout en auditoría
+    if username != 'unknown':
+        audit_logger.log_logout(
+            user_email=username,
+            ip_address=request.remote_addr,
+            session_duration=session_duration,
+            logout_type='manual',
+            session_id=session_id
+        )
+    
+    logger.info(f"Logout: {username} cerró sesión desde {request.remote_addr} (duración: {session_duration or 'N/A'})")
+    
+    # Limpiar sesión
     session.clear()
     flash('Has cerrado sesión correctamente.', 'info')
     return redirect(url_for('login'))
