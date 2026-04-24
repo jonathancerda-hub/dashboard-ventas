@@ -107,8 +107,42 @@ body.login-bg {
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}" style="margin-bottom: 10px; font-size: 0.97em; padding: 7px 9px; border-radius: 5px; background-color: #FEE2E2; color: #991B1B; text-align: center;">
-                        {{ message }}
+                    {# 🆕 Estilos mejorados por tipo de alerta #}
+                    {% if category == 'danger' %}
+                        {% set bg_color = '#FEE2E2' %}
+                        {% set text_color = '#991B1B' %}
+                        {% set border_color = '#FCA5A5' %}
+                        {% set icon = '❌' %}
+                    {% elif category == 'warning' %}
+                        {% set bg_color = '#FEF3C7' %}
+                        {% set text_color = '#92400E' %}
+                        {% set border_color = '#FCD34D' %}
+                        {% set icon = '⚠️' %}
+                    {% elif category == 'info' %}
+                        {% set bg_color = '#DBEAFE' %}
+                        {% set text_color = '#1E40AF' %}
+                        {% set border_color = '#93C5FD' %}
+                        {% set icon = 'ℹ️' %}
+                    {% else %}
+                        {% set bg_color = '#D1FAE5' %}
+                        {% set text_color = '#065F46' %}
+                        {% set border_color = '#6EE7B7' %}
+                        {% set icon = '✓' %}
+                    {% endif %}
+                    
+                    <div class="alert alert-{{ category }}" style="
+                        margin-bottom: 16px; 
+                        font-size: 0.875rem; 
+                        padding: 12px 14px; 
+                        border-radius: 8px; 
+                        background-color: {{ bg_color }}; 
+                        color: {{ text_color }}; 
+                        border: 1px solid {{ border_color }};
+                        text-align: left;
+                        line-height: 1.5;
+                        white-space: pre-line;
+                    ">
+                        <strong>{{ icon }}</strong> {{ message }}
                     </div>
                 {% endfor %}
             {% endif %}

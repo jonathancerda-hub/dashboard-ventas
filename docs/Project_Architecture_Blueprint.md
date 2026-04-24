@@ -1,10 +1,11 @@
 # Plano de Arquitectura del Proyecto (Project Architecture Blueprint)
 ## Dashboard de Ventas Farmacéuticas - Documentación Integral de Arquitectura (Comprehensive Architecture Documentation)
 
-**Generado (Generated):** 17 de marzo de 2026  
+**Generado (Generated):** 21 de abril de 2026  
 **Proyecto (Project):** Dashboard de Ventas Farmacéuticas  
-**Versión (Version):** 2.0  
-**Stack Tecnológico (Technology Stack):** Python/Flask, Odoo ERP, Supabase, PostgreSQL/SQLite
+**Versión (Version):** 2.1  
+**Stack Tecnológico (Technology Stack):** Python/Flask, Odoo ERP, Supabase, PostgreSQL/SQLite  
+**Última Actualización:** Dashboard de Seguridad y Auditoría completa (Abril 2026)
 
 ---
 
@@ -18,8 +19,11 @@ El Dashboard de Ventas Farmacéuticas es una aplicación web empresarial constru
 - **Analytics Integrado**: Sistema de monitoreo de uso y adopción del dashboard
 - **Autenticación Corporativa**: OAuth2 con Google Workspace + timeout dual de sesión (15 min inactividad + 8h absoluto)
 - **Exportación de Datos**: Generación de reportes Excel con formato profesional
-- **Control de Permisos**: Sistema granular de permisos por rol y funcionalidad (PermissionsManager con SQLite)
-- **Seguridad Robusta**: Headers de seguridad (CSP, HSTS), protección SQL injection, validación de inputs
+- **Control de Permisos**: Sistema granular de permisos por rol y funcionalidad (PermissionsManager con Supabase)
+- **Auditoría Completa**: Sistema de auditoría de login/logout + cambios de permisos (AuditLogger con Supabase) - **NUEVO Abril 2026**
+- **Dashboard de Seguridad**: Visualización de métricas de seguridad con gráficas Chart.js, alertas de riesgo - **NUEVO Abril 2026**
+- **Seguridad Robusta**: Headers de seguridad (CSP, HSTS), protección SQL injection, validación de inputs, timezone Peru (UTC-5)
+- **Cumplimiento Normativo**: Alineado con ISO 27001, OWASP, PCI-DSS, GDPR, SOC 2 - **NUEVO Abril 2026**
 
 ---
 
@@ -427,24 +431,24 @@ def after_request(response):
 
 ### 4.4 PermissionsManager - Control de Acceso Granular (Granular Access Control)
 
-**Purpose**: Sistema centralizado de control de acceso basado en roles (RBAC) que reemplaza las listas hardcodeadas dispersas en el código. Implementado en Marzo 2026 para mejorar seguridad y mantenibilidad.
+**Purpose**: Sistema centralizado de control de acceso basado en roles (RBAC) que reemplaza las listas hardcodeadas dispersas en el código. Implementado en Marzo 2026 para mejorar seguridad y mantenibilidad. **Migrado a Supabase en Abril 2026** para consistencia con audit_log_permissions.
 
 **Internal Structure**:
 ```python
 class PermissionsManager:
-    self.db_path              # SQLite database path
-    self.conn                 # Database connection
+    self.supabase             # Supabase client instance
+    self.enabled              # Availability flag
     
     # Core methods
-    __init__()                          # Initialize DB and tables
-    create_tables()                     # Schema setup
+    __init__()                          # Initialize Supabase client
     add_user(email, role, name)        # User registration
-    remove_user(email)                  # User deletion
+    remove_user(email)                  # User deactivation
     update_user_role(email, new_role)  # Role modification
     check_permission(email, feature)    # Permission validation
     get_user_role(email)                # Role lookup
-    list_users()                        # All users enumeration
-    migrate_from_lists()                # Legacy migration
+    get_user_details(email)             # Complete user info
+    list_users()                        # All active users enumeration
+    get_all_roles()                     # Available roles
 ```
 
 **Role Definitions**:
@@ -453,7 +457,8 @@ ROLES = {
     'admin_full': [
         'view_dashboard', 'view_sales', 'view_analytics',
         'edit_metas', 'edit_vendedor_metas', 'edit_equipos',
-        'export_sales', 'export_dashboard'
+        'export_sales', 'export_dashboard', 'admin_users',
+        'admin_audit_log'  # Nuevo: acceso a dashboard de seguridad
     ],
     'admin_export': [
         'view_dashboard', 'view_sales',
@@ -461,23 +466,28 @@ ROLES = {
     ],
     'analytics_viewer': [
         'view_dashboard', 'view_sales', 'view_analytics'
+    ],
+    'user_basic': [
+        'view_dashboard', 'view_sales'
     ]
 }
 ```
 
-**Database Schema**:
+**Database Schema** (Supabase):
 ```sql
-CREATE TABLE permissions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE user_permissions (
+    id SERIAL PRIMARY KEY,
     user_email TEXT UNIQUE NOT NULL,
     user_name TEXT,
     role TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_user_email_permissions ON permissions(user_email);
-CREATE INDEX idx_role ON permissions(role);
+CREATE INDEX idx_user_email ON user_permissions(user_email);
+CREATE INDEX idx_role ON user_permissions(role);
+CREATE INDEX idx_is_active ON user_permissions(is_active);
 ```
 
 **Usage Pattern**:
@@ -521,8 +531,217 @@ permissions_manager.migrate_from_lists(
 **Security Improvements** (OWASP):
 - Elimina duplicación de listas admin (Tech Debt resuelto)
 - Principio de privilegio mínimo por rol
-- Auditoría de cambios de permisos
+- Auditoría de cambios de permisos (vía AuditLogger)
 - Separación de concerns (autorización vs autenticación)
+- Migración a Supabase para mejor escalabilidad
+
+---
+
+### 4.4.1 AuditLogger - Sistema de Auditoría Completa (Complete Audit System) - **NUEVO Abril 2026**
+
+**Purpose**: Sistema integral de auditoría que registra todos los eventos de autenticación (login/logout) y cambios de permisos, cumpliendo con estándares ISO 27001, OWASP, PCI-DSS, GDPR y SOC 2.
+
+**Internal Structure**:
+```python
+class AuditLogger:
+    self.supabase             # Supabase client instance
+    self.enabled              # Availability flag
+    
+    # Authentication Event Logging
+    log_login_success(user_email, user_name, role, ip_address, 
+                     user_agent, oauth_provider, session_id)
+    log_login_failed(attempted_email, ip_address, user_agent, 
+                    failure_reason, error_message)
+    log_logout(user_email, ip_address, session_duration, 
+              logout_type, session_id)
+    log_session_timeout(user_email, timeout_type, last_activity, ip_address)
+    
+    # Permission Change Logging
+    log_user_created(admin_email, user_email, user_name, role, 
+                    ip_address, user_agent)
+    log_user_updated(admin_email, user_email, old_role, new_role, 
+                    ip_address, user_agent)
+    log_user_deleted(admin_email, user_email, ip_address, user_agent)
+    log_user_deactivated(admin_email, user_email, ip_address, user_agent)
+    log_user_reactivated(admin_email, user_email, ip_address, user_agent)
+    
+    # Security Analytics
+    get_security_stats(hours=24)           # Métricas de seguridad
+    get_login_timeline(hours=24)           # Timeline de eventos
+    get_recent_failed_attempts(limit=10)   # Intentos fallidos
+    
+    # Permission Analytics
+    get_filtered_logs(days, action, admin_email, exclude_auth_events)
+    get_statistics()                        # Estadísticas generales
+    get_user_history(user_email)           # Historial de usuario
+```
+
+**Database Schema** (Supabase):
+```sql
+CREATE TABLE audit_log_permissions (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP DEFAULT NOW(),
+    admin_email TEXT NOT NULL,            -- Usuario que realizó la acción
+    action TEXT NOT NULL,                 -- LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, 
+                                         -- SESSION_TIMEOUT, CREATE, UPDATE, DELETE, etc.
+    target_user_email TEXT,              -- Usuario afectado
+    old_value TEXT,                       -- Valor anterior (rol)
+    new_value TEXT,                       -- Valor nuevo (rol)
+    ip_address TEXT,                      -- IP del cliente
+    user_agent TEXT,                      -- User agent del navegador
+    details JSONB,                        -- Metadata adicional
+    
+    CONSTRAINT audit_log_permissions_action_check 
+        CHECK (action IN ('CREATE', 'UPDATE', 'DELETE', 'DEACTIVATE', 'ACTIVATE',
+                         'LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'SESSION_TIMEOUT'))
+);
+
+CREATE INDEX idx_audit_timestamp ON audit_log_permissions(timestamp);
+CREATE INDEX idx_audit_admin_email ON audit_log_permissions(admin_email);
+CREATE INDEX idx_audit_target_user ON audit_log_permissions(target_user_email);
+CREATE INDEX idx_audit_action ON audit_log_permissions(action);
+```
+
+**Timezone Support** (Peru UTC-5):
+```python
+import pytz
+PERU_TZ = pytz.timezone('America/Lima')
+UTC_TZ = pytz.UTC
+
+# Template filters en app.py
+@app.template_filter('to_peru_time')
+def to_peru_time(utc_timestamp_str):
+    """Convierte UTC a 'DD/MM/YYYY HH:MM:SS' hora de Perú"""
+    # ... conversión con pytz ...
+
+@app.template_filter('to_peru_date')
+def to_peru_date(utc_timestamp_str):
+    """Convierte UTC a 'DD/MM/YYYY'"""
+
+@app.template_filter('to_peru_time_only')
+def to_peru_time_only(utc_timestamp_str):
+    """Convierte UTC a 'HH:MM:SS'"""
+
+@app.template_filter('role_display')
+def role_display(role_code):
+    """Convierte código de rol a nombre legible"""
+```
+
+**Security Event Types**:
+
+1. **LOGIN_SUCCESS**: Login exitoso con OAuth2
+   - Captura: email, nombre, rol, IP, user agent, provider, session_id
+   - Permite correlación con LOGOUT vía session_id
+
+2. **LOGIN_FAILED**: Intento fallido de autenticación
+   - Captura: email intentado, IP, user agent, razón, error message
+   - Alertas si >10 intentos desde misma IP
+
+3. **LOGOUT**: Cierre de sesión manual
+   - Captura: email, IP, duración de sesión, session_id
+   - Calcula tiempo entre login y logout
+
+4. **SESSION_TIMEOUT**: Timeout automático de sesión
+   - Captura: email, tipo (inactivity/absolute), última actividad, IP
+   - Dos tipos: 15 min inactividad o 8h absoluto
+
+**Permission Event Types**:
+- **CREATE**: Nuevo usuario agregado al sistema
+- **UPDATE**: Cambio de rol de usuario existente
+- **DELETE**: Usuario eliminado permanentemente
+- **DEACTIVATE**: Usuario desactivado (soft delete)
+- **ACTIVATE**: Usuario reactivado después de desactivación
+
+**Usage Patterns**:
+
+```python
+# En route /authorize (login success)
+from src.audit_logger import AuditLogger
+audit_logger = AuditLogger()
+
+audit_logger.log_login_success(
+    user_email=user_info['email'],
+    user_name=user_info.get('name'),
+    role=user_role,
+    ip_address=request.remote_addr,
+    user_agent=request.headers.get('User-Agent'),
+    oauth_provider='google',
+    session_id=session.sid  # Para correlación con logout
+)
+
+# En route /logout
+session_duration = calculate_duration(
+    session.get('login_time'),
+    datetime.now()
+)
+
+audit_logger.log_logout(
+    user_email=session['username'],
+    ip_address=request.remote_addr,
+    session_duration=session_duration,
+    logout_type='manual',
+    session_id=session.sid
+)
+
+# En verify_session_expiration() para timeouts
+audit_logger.log_session_timeout(
+    user_email=session['username'],
+    timeout_type='inactivity',  # o 'absolute'
+    last_activity=session.get('last_activity_time'),
+    ip_address=request.remote_addr
+)
+
+# En route /admin/users/update para cambios de permisos
+audit_logger.log_user_updated(
+    admin_email=current_user,
+    user_email=target_email,
+    old_role=old_role,
+    new_role=new_role,
+    ip_address=request.remote_addr,
+    user_agent=request.headers.get('User-Agent')
+)
+```
+
+**Security Dashboard Integration**:
+
+El AuditLogger alimenta el **Dashboard de Seguridad** (`/admin/audit-log`) con:
+
+1. **Métricas 24h** (Security Stats):
+   - Login exitosos
+   - Intentos fallidos
+   - Logouts manuales
+   - Timeouts de sesión
+   - Tasa de éxito de autenticación
+   - Top IPs con intentos fallidos
+   - Usuarios activos
+
+2. **Timeline Chart** (Chart.js):
+   - Visualización horaria de eventos de autenticación
+   - 4 datasets: login_success, login_failed, logout, timeout
+   - Datos agrupados por hora en timezone Peru
+
+3. **Tabla de Intentos Fallidos**:
+   - Últimos 10 intentos fallidos
+   - Detalle: timestamp, email, IP, razón, mensaje
+   - Ordenados por timestamp descendente
+
+4. **Tabla de Cambios de Permisos**:
+   - Filtrado por período (7/30/90/365 días)
+   - Filtrado por acción (CREATE, UPDATE, DELETE, etc.)
+   - Badges con colores por rol
+   - Timestamps en hora de Perú
+
+**Compliance Benefits**:
+- ✅ **ISO 27001**: Trazabilidad completa de accesos
+- ✅ **OWASP A01**: Auditoría de autenticación
+- ✅ **PCI-DSS Req 10**: Logging de eventos de seguridad
+- ✅ **GDPR Art 30**: Registro de actividades de tratamiento
+- ✅ **SOC 2**: Control de acceso y monitoreo
+
+**Design Patterns**:
+- **Repository Pattern**: Abstracción de acceso a Supabase
+- **Observer Pattern**: Eventos registrados en cada acción
+- **Strategy Pattern**: Diferentes estrategias de logging por tipo de evento
 
 ---
 
@@ -575,6 +794,17 @@ analytics_db = AnalyticsDB()
 # Analytics & Monitoring
 @app.route('/analytics')          # Sistema de estadísticas interno
 
+# Admin Module - User Management (NUEVO Abril 2026)
+@app.route('/admin/users')                     # Lista de usuarios
+@app.route('/admin/users/create')              # Crear nuevo usuario
+@app.route('/admin/users/update/<email>')      # Actualizar rol de usuario
+@app.route('/admin/users/delete/<email>')      # Eliminar usuario
+
+# Admin Module - Security Audit (NUEVO Abril 2026)
+@app.route('/admin/audit-log')                 # Dashboard de seguridad
+                                               # - Tab 1: Métricas de seguridad (24h)
+                                               # - Tab 2: Cambios de permisos
+
 # Data Export
 @app.route('/export/excel/sales')             # Exportar ventas
 @app.route('/export/dashboard/details')       # Exportar dashboard
@@ -588,13 +818,36 @@ if 'username' not in session:
     return redirect(url_for('login'))
 ```
 
-2. **Role-based Authorization** (por endpoint):
+2. **Role-based Authorization** (con PermissionsManager - Actualizado Abril 2026):
 ```python
-admin_users = ["jonathan.cerda@...", "janet.hueza@...", ...]
-is_admin = session.get('username') in admin_users
-if not is_admin:
-    flash('No tienes permiso...', 'warning')
-    return redirect(url_for('dashboard'))
+# Inicialización
+from src.permissions_manager import PermissionsManager
+permissions_manager = PermissionsManager()
+
+# Decoradores para control de acceso
+from functools import wraps
+
+def require_admin_full(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return redirect(url_for('login'))
+        
+        user_role = permissions_manager.get_user_role(session['username'])
+        if user_role != 'admin_full':
+            flash('Se requiere rol admin_full', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Uso en routes
+@app.route('/admin/users')
+@require_admin_full
+def admin_users():
+    # Solo accesible por admin_full
+    users = permissions_manager.list_users()
+    return render_template('admin/users.html', users=users)
 ```
 
 3. **Whitelist Validation** (en login):
@@ -830,6 +1083,63 @@ Origen: Local DB (SQLite/PostgreSQL) `page_visits`
     'method': 'GET'
 }
 ```
+
+#### **Audit & Permissions Domain** - **NUEVO Abril 2026**
+Origen: Supabase `audit_log_permissions`, `user_permissions`
+
+```python
+# Registro de Auditoría (Authentication Event)
+{
+    'id': 1001,
+    'timestamp': '2026-04-21T15:57:42.123456+00:00',
+    'admin_email': 'jonathan.cerda@agrovetmarket.com',
+    'action': 'LOGIN_SUCCESS',
+    'target_user_email': 'jonathan.cerda@agrovetmarket.com',
+    'old_value': None,
+    'new_value': 'admin_full',  # Rol del usuario
+    'ip_address': '190.237.45.123',
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)...',
+    'details': {
+        'name': 'Jonathan Cerda',
+        'role': 'admin_full',
+        'oauth_provider': 'google',
+        'session_id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        'timestamp_readable': '2026-04-21T10:57:42-05:00'
+    }
+}
+
+# Registro de Auditoría (Permission Change)
+{
+    'id': 1002,
+    'timestamp': '2026-03-24T21:46:09.876543+00:00',
+    'admin_email': 'jonathan.cerda@agrovetmarket.com',
+    'action': 'UPDATE',
+    'target_user_email': 'teodoro.balarezo@agrovetmarket.com',
+    'old_value': 'user_basic',
+    'new_value': 'admin_export',
+    'ip_address': '127.0.0.1',
+    'user_agent': 'Mozilla/5.0...',
+    'details': {
+        'changed_by': 'Jonathan Cerda',
+        'reason': 'Promotion to export role'
+    }
+}
+
+# Permisos de Usuario
+{
+    'id': 42,
+    'user_email': 'janet.hueza@agrovetmarket.com',
+    'user_name': 'Janet Hueza',
+    'role': 'admin_full',
+    'is_active': True,
+    'created_at': '2026-03-10T12:00:00',
+    'updated_at': '2026-03-10T12:00:00'
+}
+```
+
+**Tipos de Acciones (Action Types)**:
+- **Autenticación**: `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGOUT`, `SESSION_TIMEOUT`
+- **Permisos**: `CREATE`, `UPDATE`, `DELETE`, `DEACTIVATE`, `ACTIVATE`
 
 ### 6.2 Patrones de Flujo de Datos (Data Flow Patterns)
 
@@ -3101,6 +3411,144 @@ CREATE TABLE role_permissions (
     PRIMARY KEY (role, permission)
 );
 ```
+
+**Status**: ✅ **RESUELTO en Marzo 2026** - Migrado a PermissionsManager con Supabase.
+
+---
+
+### ADR-008: Sistema de Auditoría Completo (Complete Audit System) - **NUEVO Abril 2026**
+
+**Context**: Necesidad de cumplir con estándares de seguridad (ISO 27001, OWASP, PCI-DSS, GDPR, SOC 2) que requieren auditoría de eventos de autenticación y cambios de permisos.
+
+**Decision**: Implementar AuditLogger con registro completo de login/logout y cambios de permisos en Supabase.
+
+**Rationale**:
+- **Cumplimiento normativo**: ISO 27001 requiere trazabilidad de accesos
+- **OWASP A01**: Broken Authentication - necesita logging de intentos fallidos
+- **PCI-DSS Requirement 10**: Logging obligatorio de eventos de seguridad
+- **GDPR Art 30**: Registro de actividades de tratamiento de datos
+- **SOC 2**: Control de acceso y monitoreo continuo
+- **Investigación de incidentes**: Necesidad de histórico completo para análisis forense
+
+**Design Decisions**:
+1. **Tabla única** (`audit_log_permissions`) para permisos y autenticación
+   - Simplifica queries y vistas consolidadas
+   - Evita JOINs complejos para timeline completo
+   
+2. **Session ID tracking** para correlación login→logout
+   - Permite calcular duración real de sesión
+   - Facilita detección de sesiones anómalas
+   
+3. **Dual timeout** (inactividad + absoluto)
+   - 15 minutos inactividad: protege contra walk-away
+   - 8 horas absoluto: limita ventana de exposición
+   
+4. **Timezone Peru (UTC-5)** en presentación
+   - Datos almacenados en UTC (estándar)
+   - Conversión client-side con filtros Jinja2
+   - Facilita correlación con eventos externos
+
+**Consequences**:
+- ✅ Pros: Cumplimiento normativo completo, trazabilidad total
+- ✅ Pros: Dashboard de seguridad con métricas en tiempo real
+- ✅ Pros: Detección temprana de ataques (intentos fallidos por IP)
+- ❌ Cons: Overhead de storage (~50KB por día con 40 usuarios)
+- ❌ Cons: Complejidad adicional en routes (3-5 líneas por endpoint)
+- ⚠️ Implicaciones: Retención de datos 1 año (configurable)
+
+**Implementation**:
+- Commit `b792f42`: "feat: Dashboard de Seguridad con auditoría completa de login/logout y mejoras UI"
+- Archivos: `src/audit_logger.py`, `templates/admin/audit_log.html`
+- SQL Migration: `sql/update_audit_constraint_add_login_events.sql`
+
+**Alternatives Considered**:
+- **Separar tablas** (auth_events + permission_events): Rechazado por complejidad en queries
+- **Third-party SIEM**: Rechazado por costo y overkill para <50 usuarios
+- **File-based logging**: Rechazado por dificultad de querying y visualización
+
+---
+
+### ADR-009: Dashboard de Seguridad con Chart.js (Security Dashboard with Chart.js) - **NUEVO Abril 2026**
+
+**Context**: AuditLogger genera datos, pero se necesita visualización para detectar patrones de seguridad.
+
+**Decision**: Crear dashboard de seguridad (`/admin/audit-log`) con métricas 24h, gráficas Chart.js y tablas DataTables.
+
+**Rationale**:
+- **Visibilidad**: Admin necesita ver rápidamente estado de seguridad
+- **Alertas proactivas**: Detectar >10 intentos fallidos desde misma IP
+- **Análisis de tendencias**: Timeline horario revela horarios de ataques
+- **UX moderna**: Tabs separan concerns (seguridad vs permisos)
+
+**Design Decisions**:
+1. **Tabbed interface** (Bootstrap 5):
+   - Tab 1: Seguridad (métricas 24h)
+   - Tab 2: Cambios de permisos (histórico filtrable)
+   
+2. **Chart.js line chart** para timeline:
+   - 4 datasets: login_success, login_failed, logout, timeout
+   - Agrupación horaria en timezone Peru
+   - Colores semáforo: verde (success), rojo (failed), azul (logout), amarillo (timeout)
+   
+3. **DataTables** para tablas interactivas:
+   - Ordenamiento, búsqueda, paginación client-side
+   - Exportación CSV/Excel (potencial extensión)
+   
+4. **Color-coded role badges**:
+   - admin_full: Rojo (#dc3545)
+   - admin_export: Naranja (#fd7e14)
+   - analytics_viewer: Cyan (#0dcaf0)
+   - user_basic: Gris (#6c757d)
+
+**Consequences**:
+- ✅ Pros: Detección visual rápida de anomalías
+- ✅ Pros: No requiere conocimiento técnico (SQL)
+- ✅ Pros: Chart.js es ligero (60KB minified)
+- ❌ Cons: Client-side rendering (limitado a ~1000 registros)
+- ⚠️ Implicaciones: Filtro por período necesario para rendimiento
+
+**Implementation**:
+- Template: `templates/admin/audit_log.html` (~1000 líneas)
+- Route: `/admin/audit-log` con parámetros `days`, `action`, `admin`
+- Assets: Chart.js 4.4.0 CDN, DataTables 1.13.7 CDN
+
+**Alternatives Considered**:
+- **Grafana**: Rechazado por complejidad de setup
+- **ECharts** (usado en otros dashboards): Chart.js más simple para time series
+- **Server-side DataTables**: Innecesario con <100 registros por vista
+
+---
+
+### ADR-010: Migración de PermissionsManager de SQLite a Supabase - **NUEVO Abril 2026**
+
+**Context**: PermissionsManager usaba SQLite local, pero AuditLogger requiere Supabase para audit_log_permissions. Mantener dos DBs crea inconsistencia.
+
+**Decision**: Migrar user_permissions de SQLite a Supabase.
+
+**Rationale**:
+- **Consistencia**: Ambos sistemas (permisos + auditoría) en misma DB
+- **Transaccionalidad**: Cambio de rol + audit log en misma transacción
+- **Producción**: Supabase ya desplegado, SQLite complicaría deployment
+- **Backup**: Supabase tiene backups automáticos, SQLite requiere manejo manual
+
+**Migration Strategy**:
+1. Crear tabla `user_permissions` en Supabase (mismo schema que SQLite)
+2. Migrar datos existentes vía script Python
+3. Actualizar `PermissionsManager.__init__()` para usar Supabase client
+4. Mantener fallback a lista vacía si Supabase no disponible
+
+**Consequences**:
+- ✅ Pros: Single source of truth para datos de usuario
+- ✅ Pros: Real-time queries (Supabase PostgREST)
+- ❌ Cons: Dependencia absoluta de Supabase (crítico)
+- ⚠️ Implicaciones: Desarrollo local requiere Supabase configurado
+
+**Implementation**:
+- Schema: `user_permissions` table en Supabase
+- Migration: Código actualizado en `src/permissions_manager.py`
+- Backward compatibility: Fallback a `enabled=False` si Supabase falla
+
+**Status**: ✅ **COMPLETADO en Abril 2026**
 
 ---
 

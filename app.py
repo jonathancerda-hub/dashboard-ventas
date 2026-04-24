@@ -13,6 +13,7 @@ setup_logging(log_level=os.getenv('LOG_LEVEL', 'INFO'))
 logger = get_logger(__name__)
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, g, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix  # 🆕 Para proxies/load balancers (Render.com)
 from src.odoo_manager import OdooManager
 from src.supabase_manager import SupabaseManager
 from src.analytics_supabase import AnalyticsSupabase
@@ -34,6 +35,17 @@ import pytz
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+
+# 🆕 PROXY FIX: Configurar para trabajar correctamente detrás de Render.com proxy/load balancer
+# Render.com termina HTTPS y envía headers X-Forwarded-Proto y X-Forwarded-Host
+# Esto asegura que Flask genere URLs correctas (https://) incluso si ve HTTP internamente
+if os.getenv('FLASK_ENV') == 'production':
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_proto=1,  # Confiar en 1 proxy para X-Forwarded-Proto (http/https)
+        x_host=1    # Confiar en 1 proxy para X-Forwarded-Host (dominio)
+    )
+    logger.info("✅ ProxyFix configurado para producción (Render.com)")
 
 # Configuración de Rate Limiting (A01: Broken Authentication - ISO/IEC 27001:2022 A.9.4.2)
 limiter = Limiter(
@@ -879,23 +891,79 @@ def authorize():
             return redirect(url_for('login'))
             
     except Exception as e:
-        logger.error(f"Error en autenticación OAuth: {e}", exc_info=True)
+        error_msg = str(e)
+        logger.error(f"Error en autenticación OAuth: {error_msg}", exc_info=True)
         
-        # Registrar error general de OAuth
+        # 🆕 MEJORA: Detectar error CSRF específico y dar mensaje claro
+        if 'mismatching_state' in error_msg.lower() or 'csrf' in error_msg.lower():
+            failure_reason = 'oauth_csrf_error'
+            user_message = ('⚠️ Error de seguridad OAuth (CSRF). Esto puede ocurrir por:\n\n'
+                          '• Cookies bloqueadas o navegador en modo incógnito\n'
+                          '• Múltiples pestañas de login abiertas simultáneamente\n'
+                          '• Extensions de privacidad muy estrictas (uBlock, Privacy Badger)\n\n'
+                          '🔧 Solución:\n'
+                          '1. Cierre TODAS las pestañas del dashboard\n'
+                          '2. Limpie el cache del navegador (Ctrl+Shift+Del)\n'
+                          '3. Asegúrese de permitir cookies de este sitio\n'
+                          '4. Use navegador normal (no incógnito)\n'
+                          '5. Intente nuevamente')
+            flash_type = 'warning'
+        else:
+            failure_reason = 'oauth_error'
+            user_message = 'Error en la autenticación. Por favor, intente nuevamente.'
+            flash_type = 'danger'
+        
+        # Registrar error de OAuth con tipo específico
         audit_logger.log_login_failed(
             attempted_email=None,
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent'),
-            failure_reason='oauth_error',
-            error_message=str(e)
+            failure_reason=failure_reason,
+            error_message=error_msg
         )
         
-        flash('Error en la autenticación. Por favor, intente nuevamente.', 'danger')
+        flash(user_message, flash_type)
         return redirect(url_for('login'))
 
 @app.route('/desing-login')
 def desing_login():
     return render_template('desing_login.html')
+
+@app.route('/debug/session-check')
+def debug_session_check():
+    """
+    🔧 ENDPOINT DE DEBUG: Verificar estado de cookies y sesiones
+    Solo disponible en desarrollo para diagnosticar problemas OAuth/CSRF
+    """
+    if os.getenv('FLASK_ENV') == 'production':
+        return "Not available in production", 403
+    
+    return jsonify({
+        'environment': os.getenv('FLASK_ENV', 'development'),
+        'cookies_received': {
+            'session': request.cookies.get('session') is not None,
+            'all_cookies': list(request.cookies.keys())
+        },
+        'session_data': {
+            'has_session': bool(session),
+            'session_keys': list(session.keys()),
+            'username': session.get('username', 'Not logged in')
+        },
+        'request_info': {
+            'remote_addr': request.remote_addr,
+            'user_agent': request.headers.get('User-Agent', 'Unknown'),
+            'x_forwarded_proto': request.headers.get('X-Forwarded-Proto'),
+            'x_forwarded_host': request.headers.get('X-Forwarded-Host'),
+            'host': request.host,
+            'scheme': request.scheme
+        },
+        'config': {
+            'SESSION_COOKIE_SECURE': app.config.get('SESSION_COOKIE_SECURE'),
+            'SESSION_COOKIE_HTTPONLY': app.config.get('SESSION_COOKIE_HTTPONLY'),
+            'SESSION_COOKIE_SAMESITE': app.config.get('SESSION_COOKIE_SAMESITE'),
+            'SESSION_COOKIE_NAME': app.config.get('SESSION_COOKIE_NAME')
+        }
+    })
 
 
 @app.route('/logout')

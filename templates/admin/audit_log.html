@@ -499,11 +499,42 @@
         <!-- TAB 1: SEGURIDAD (LOGIN/LOGOUT) -->
         <div class="tab-pane fade show active" id="security" role="tabpanel">
             
-            <!-- Alerta si hay muchos intentos fallidos -->
-            {% if security_stats.login_failed > 10 %}
-            <div class="alert-security">
-                <h5><i class="bi bi-exclamation-triangle-fill"></i> Alerta de Seguridad</h5>
-                <p>Se han detectado <strong>{{ security_stats.login_failed }} intentos de login fallidos</strong> en las últimas 24 horas. Revise la tabla de intentos fallidos para más detalles.</p>
+            <!-- 🆕 ALERTA INTELIGENTE DE SEGURIDAD (según nivel de riesgo) -->
+            {% if security_stats.risk_level == 'high' %}
+            <div class="alert alert-danger" style="border-left: 4px solid #dc3545;">
+                <h5><i class="bi bi-shield-exclamation"></i> ⚠️ Alerta de Seguridad - Riesgo Alto</h5>
+                <p><strong>{{ security_stats.login_failed }} intentos de login fallidos</strong> en las últimas 24 horas.</p>
+                <p>{{ security_stats.risk_message }}</p>
+                <ul style="margin-bottom: 0;">
+                    <li><strong>{{ security_stats.suspicious_ips_count }} IPs sospechosas</strong> con más de 3 intentos</li>
+                    <li><strong>{{ security_stats.unknown_ratio }}%</strong> de intentos desde usuarios desconocidos</li>
+                </ul>
+            </div>
+            
+            {% elif security_stats.risk_level == 'medium' %}
+            <div class="alert alert-warning" style="border-left: 4px solid #ffc107;">
+                <h5><i class="bi bi-shield-check"></i> 🟡 Monitoreo Recomendado - Riesgo Medio</h5>
+                <p><strong>{{ security_stats.login_failed }} intentos de login fallidos</strong> en las últimas 24 horas.</p>
+                <p>{{ security_stats.risk_message }}</p>
+                <ul style="margin-bottom: 0;">
+                    <li>{{ security_stats.known_users_failed }} intentos de <strong>usuarios conocidos</strong> (se equivocaron)</li>
+                    <li>{{ security_stats.unknown_users_failed }} intentos de <strong>usuarios desconocidos</strong></li>
+                    <li>{{ security_stats.oauth_errors_failed }} errores técnicos (OAuth/CSRF)</li>
+                </ul>
+            </div>
+            
+            {% elif security_stats.login_failed > 0 %}
+            <div class="alert alert-info" style="border-left: 4px solid #0dcaf0;">
+                <h5><i class="bi bi-info-circle"></i> ℹ️ Situación Normal - Riesgo Bajo</h5>
+                <p><strong>{{ security_stats.login_failed }} intentos de login fallidos</strong> en las últimas 24 horas.</p>
+                <p>{{ security_stats.risk_message }}</p>
+                <div style="margin-top: 10px;">
+                    <span class="badge bg-success">{{ security_stats.known_users_failed }} usuarios conocidos</span>
+                    <span class="badge bg-warning">{{ security_stats.oauth_errors_failed }} errores técnicos</span>
+                    {% if security_stats.unknown_users_failed > 0 %}
+                    <span class="badge bg-secondary">{{ security_stats.unknown_users_failed }} desconocidos</span>
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
             
@@ -526,10 +557,16 @@
                     <div class="stat-content">
                         <h3>{{ security_stats.login_failed }}</h3>
                         <p>Intentos Fallidos</p>
-                        {% if security_stats.login_failed > 0 %}
-                        <span class="badge bg-danger">Requiere atención</span>
+                        
+                        {# 🆕 Badge contextual según nivel de riesgo #}
+                        {% if security_stats.risk_level == 'high' %}
+                        <span class="badge bg-danger"><i class="bi bi-shield-exclamation"></i> Riesgo Alto</span>
+                        {% elif security_stats.risk_level == 'medium' %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-shield-check"></i> Monitorear</span>
+                        {% elif security_stats.login_failed > 0 %}
+                        <span class="badge bg-info"><i class="bi bi-info-circle"></i> Situación Normal</span>
                         {% else %}
-                        <span class="badge bg-success">Sin problemas</span>
+                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Sin Problemas</span>
                         {% endif %}
                     </div>
                 </div>
@@ -554,6 +591,51 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- 🆕 DESGLOSE DE INTENTOS FALLIDOS -->
+            {% if security_stats.login_failed > 0 %}
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                        <h4 style="margin-bottom: 16px; font-size: 18px; color: #2d3748;">
+                            <i class="bi bi-pie-chart"></i> Desglose de Intentos Fallidos
+                        </h4>
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <div style="padding: 16px; background: #f7fafc; border-radius: 8px;">
+                                    <div style="font-size: 32px; font-weight: 700; color: #48bb78;">{{ security_stats.known_users_failed }}</div>
+                                    <div style="font-size: 14px; color: #718096; margin-top: 4px;">Usuarios Conocidos</div>
+                                    <div style="font-size: 12px; color: #a0aec0; margin-top: 4px;">Se equivocaron al ingresar</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="padding: 16px; background: #f7fafc; border-radius: 8px;">
+                                    <div style="font-size: 32px; font-weight: 700; color: #ed8936;">{{ security_stats.oauth_errors_failed }}</div>
+                                    <div style="font-size: 14px; color: #718096; margin-top: 4px;">Errores Técnicos</div>
+                                    <div style="font-size: 12px; color: #a0aec0; margin-top: 4px;">OAuth, CSRF, cookies</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="padding: 16px; background: #f7fafc; border-radius: 8px;">
+                                    <div style="font-size: 32px; font-weight: 700; 
+                                         {% if security_stats.unknown_users_failed > 5 %}color: #f56565;{% else %}color: #4a5568;{% endif %}">
+                                        {{ security_stats.unknown_users_failed }}
+                                    </div>
+                                    <div style="font-size: 14px; color: #718096; margin-top: 4px;">Usuarios Desconocidos</div>
+                                    <div style="font-size: 12px; color: #a0aec0; margin-top: 4px;">
+                                        {% if security_stats.suspicious_ips_count > 0 %}
+                                        ⚠️ {{ security_stats.suspicious_ips_count }} IPs sospechosas
+                                        {% else %}
+                                        Sin IPs sospechosas
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             
             <!-- Gráfica de Timeline de Login/Logout -->
             <div class="chart-container">
@@ -591,6 +673,18 @@
                                     <div class="user-info">
                                         <i class="bi bi-person"></i>
                                         <span class="user-email">{{ attempt.attempted_email }}</span>
+                                        
+                                        {# 🆕 CORRELACIÓN INTELIGENTE: Si hay usuario sugerido por IP #}
+                                        {% if attempt.suggested_user %}
+                                        <div style="margin-top: 6px;">
+                                            <span class="badge bg-info" style="font-size: 0.75rem;" 
+                                                  title="Usuario identificado por IP {{ attempt.ip_address }} en visitas recientes">
+                                                <i class="bi bi-lightbulb"></i> Posiblemente: 
+                                                <strong>{{ attempt.suggested_user.user_name }}</strong> 
+                                                ({{ attempt.suggested_user.user_email }})
+                                            </span>
+                                        </div>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>

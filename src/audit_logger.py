@@ -579,12 +579,15 @@ class AuditLogger:
     def get_security_stats(self, hours: int = 24) -> Dict:
         """
         Obtiene estadísticas de seguridad (login/logout) para dashboard.
+        🆕 MEJORADO: Incluye análisis de riesgo inteligente que diferencia entre:
+        - Usuarios conocidos que se equivocaron (bajo riesgo)
+        - IPs desconocidas con múltiples intentos (riesgo real)
         
         Args:
             hours: Número de horas hacia atrás (default: 24)
         
         Returns:
-            Dict: Estadísticas de seguridad con métricas de login/logout
+            Dict: Estadísticas de seguridad con análisis de riesgo contextual
         """
         try:
             date_limit = (datetime.now() - timedelta(hours=hours)).isoformat()
@@ -608,23 +611,61 @@ class AuditLogger:
             total_login_attempts = login_success + login_failed
             success_rate = (login_success / total_login_attempts * 100) if total_login_attempts > 0 else 100
             
+            # 🆕 ANÁLISIS DE RIESGO INTELIGENTE
+            failed_events = [e for e in events if e['action'] == 'LOGIN_FAILED']
+            
+            # Clasificar intentos fallidos por tipo de usuario
+            known_users_failed = 0  # Usuarios con email válido (@agrovetmarket.com)
+            unknown_users_failed = 0  # Email "unknown" o sin email
+            oauth_errors_failed = 0  # Errores de OAuth/CSRF (técnicos, no maliciosos)
+            
             # IPs con más intentos fallidos
             failed_by_ip = {}
-            for event in events:
-                if event['action'] == 'LOGIN_FAILED':
-                    ip = event.get('ip_address', 'Unknown')
-                    failed_by_ip[ip] = failed_by_ip.get(ip, 0) + 1
+            for event in failed_events:
+                ip = event.get('ip_address', 'Unknown')
+                failed_by_ip[ip] = failed_by_ip.get(ip, 0) + 1
+                
+                # Clasificar por tipo
+                email = event.get('target_user_email', 'unknown').lower()
+                failure_reason = event.get('details', {}).get('failure_reason', '')
+                
+                if 'oauth' in failure_reason or 'csrf' in failure_reason:
+                    oauth_errors_failed += 1
+                elif email != 'unknown' and '@agrovetmarket.com' in email:
+                    known_users_failed += 1
+                else:
+                    unknown_users_failed += 1
             
+            # IPs sospechosas: más de 3 intentos fallidos desde IP desconocida
+            suspicious_ips = {ip: count for ip, count in failed_by_ip.items() if count > 3}
+            
+            # Top IPs con más intentos
             top_failed_ips = sorted(failed_by_ip.items(), key=lambda x: x[1], reverse=True)[:5]
             
             # Usuarios con más intentos fallidos
             failed_by_user = {}
-            for event in events:
-                if event['action'] == 'LOGIN_FAILED':
-                    user = event.get('target_user_email', 'Unknown')
-                    failed_by_user[user] = failed_by_user.get(user, 0) + 1
+            for event in failed_events:
+                user = event.get('target_user_email', 'Unknown')
+                failed_by_user[user] = failed_by_user.get(user, 0) + 1
             
             top_failed_users = sorted(failed_by_user.items(), key=lambda x: x[1], reverse=True)[:5]
+            
+            # 🆕 NIVEL DE RIESGO CALCULADO
+            # Alto: >5 IPs sospechosas O >50% intentos de usuarios desconocidos
+            # Medio: 2-5 IPs sospechosas O 20-50% intentos desconocidos
+            # Bajo: <2 IPs sospechosas Y <20% intentos desconocidos
+            suspicious_ip_count = len(suspicious_ips)
+            unknown_ratio = (unknown_users_failed / login_failed * 100) if login_failed > 0 else 0
+            
+            if suspicious_ip_count > 5 or unknown_ratio > 50:
+                risk_level = 'high'
+                risk_message = 'Múltiples IPs desconocidas con intentos repetidos. Posible ataque de fuerza bruta.'
+            elif suspicious_ip_count >= 2 or unknown_ratio > 20:
+                risk_level = 'medium'
+                risk_message = 'Algunas IPs con intentos repetidos. Monitoreo recomendado.'
+            else:
+                risk_level = 'low'
+                risk_message = 'La mayoría de intentos fallidos son de usuarios conocidos. Situación normal.'
             
             stats = {
                 'period_hours': hours,
@@ -636,7 +677,16 @@ class AuditLogger:
                 'success_rate': round(success_rate, 2),
                 'top_failed_ips': [{'ip': ip, 'count': count} for ip, count in top_failed_ips],
                 'top_failed_users': [{'user': user, 'count': count} for user, count in top_failed_users],
-                'active_users': login_success  # Usuarios que iniciaron sesión en el período
+                'active_users': login_success,
+                
+                # 🆕 ANÁLISIS DE RIESGO
+                'risk_level': risk_level,  # 'low', 'medium', 'high'
+                'risk_message': risk_message,
+                'known_users_failed': known_users_failed,  # Usuarios conocidos que se equivocaron
+                'unknown_users_failed': unknown_users_failed,  # Intentos de usuarios desconocidos
+                'oauth_errors_failed': oauth_errors_failed,  # Errores técnicos (CSRF, OAuth)
+                'suspicious_ips_count': suspicious_ip_count,  # IPs con >3 intentos
+                'unknown_ratio': round(unknown_ratio, 1)  # % de intentos de desconocidos
             }
             
             return stats
@@ -652,7 +702,14 @@ class AuditLogger:
                 'success_rate': 100,
                 'top_failed_ips': [],
                 'top_failed_users': [],
-                'active_users': 0
+                'active_users': 0,
+                'risk_level': 'low',
+                'risk_message': 'Sin datos suficientes',
+                'known_users_failed': 0,
+                'unknown_users_failed': 0,
+                'oauth_errors_failed': 0,
+                'suspicious_ips_count': 0,
+                'unknown_ratio': 0
             }
     
     def get_login_timeline(self, hours: int = 24) -> List[Dict]:
@@ -715,15 +772,63 @@ class AuditLogger:
             logger.error(f"Error obteniendo timeline de login: {e}", exc_info=True)
             return []
     
+    def _get_user_by_ip_correlation(self, ip_address: str) -> Optional[Dict]:
+        """
+        Busca el usuario más reciente asociado a una IP en analytics.
+        Útil para identificar usuarios que se equivocaron al hacer login.
+        
+        Args:
+            ip_address: IP a buscar
+        
+        Returns:
+            Dict con 'user_email', 'user_name', 'last_seen' o None si no encuentra
+        """
+        if not ip_address or ip_address == 'Unknown':
+            return None
+        
+        try:
+            # Buscar en analytics (visitas recientes con esta IP)
+            response = self.supabase.table('page_visits_ventas_locales')\
+                .select('user_email, user_name, visit_timestamp')\
+                .eq('ip_address', ip_address)\
+                .not_.is_('user_email', 'null')\
+                .neq('user_email', 'unknown')\
+                .order('visit_timestamp', desc=True)\
+                .limit(1)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                match = response.data[0]
+                return {
+                    'user_email': match.get('user_email'),
+                    'user_name': match.get('user_name'),
+                    'last_seen': match.get('visit_timestamp')
+                }
+            
+            return None
+        except Exception as e:
+            logger.debug(f"No se pudo correlacionar IP {ip_address}: {e}")
+            return None
+    
     def get_recent_failed_attempts(self, limit: int = 10) -> List[Dict]:
         """
         Obtiene intentos de login fallidos recientes para alertas.
+        🆕 INCLUYE CORRELACIÓN DE IP: Si el email intentado es 'unknown',
+        busca en analytics el usuario más reciente con esa IP para sugerir
+        quién podría haber intentado acceder.
         
         Args:
             limit: Número máximo de intentos a retornar
         
         Returns:
-            List[Dict]: Lista de intentos fallidos recientes
+            List[Dict]: Lista de intentos fallidos recientes con campos:
+                - timestamp: Fecha/hora del intento
+                - attempted_email: Email intentado (puede ser 'unknown')
+                - ip_address: IP del intento
+                - failure_reason: Razón del fallo
+                - error_message: Mensaje descriptivo
+                - user_agent: Navegador/dispositivo
+                - suggested_user: Dict con usuario sugerido por IP (si aplica)
         """
         try:
             response = self.supabase.table('audit_log_permissions')\
@@ -735,13 +840,24 @@ class AuditLogger:
             
             attempts = []
             for row in response.data:
+                attempted_email = row.get('target_user_email', 'Unknown')
+                ip_address = row.get('ip_address', 'Unknown')
+                
+                # 🆕 CORRELACIÓN INTELIGENTE: Si el email es 'unknown', buscar usuario por IP
+                suggested_user = None
+                if attempted_email.lower() == 'unknown' and ip_address != 'Unknown':
+                    suggested_user = self._get_user_by_ip_correlation(ip_address)
+                    if suggested_user:
+                        logger.info(f"🔍 IP {ip_address} correlacionada con {suggested_user['user_email']}")
+                
                 attempts.append({
                     'timestamp': row['timestamp'],
-                    'attempted_email': row.get('target_user_email', 'Unknown'),
-                    'ip_address': row.get('ip_address', 'Unknown'),
+                    'attempted_email': attempted_email,
+                    'ip_address': ip_address,
                     'failure_reason': row.get('details', {}).get('failure_reason', 'Unknown'),
                     'error_message': row.get('details', {}).get('error_message', ''),
-                    'user_agent': row.get('user_agent', '')[:50] + '...' if row.get('user_agent') else 'Unknown'
+                    'user_agent': row.get('user_agent', '')[:50] + '...' if row.get('user_agent') else 'Unknown',
+                    'suggested_user': suggested_user  # 🆕 Usuario sugerido por IP
                 })
             
             return attempts

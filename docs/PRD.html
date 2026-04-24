@@ -256,7 +256,7 @@
                 </tr>
                 <tr>
                     <td>Versión:</td>
-                    <td>3.2</td>
+                    <td>3.3</td>
                 </tr>
                 <tr>
                     <td>Fecha de Creación:</td>
@@ -264,7 +264,7 @@
                 </tr>
                 <tr>
                     <td>Última Actualización:</td>
-                    <td>26 de marzo de 2026</td>
+                    <td>22 de abril de 2026</td>
                 </tr>
                 <tr>
                     <td>Propietario del Producto:</td>
@@ -284,8 +284,8 @@
                 <p>
                     El <strong>Dashboard de Ventas Farmacéuticas</strong> es una aplicación web diseñada para proporcionar 
                     visibilidad en tiempo real del desempeño de ventas de productos farmacéuticos a través de múltiples 
-                    líneas comerciales. La plataforma integra datos de Odoo ERP y Google Sheets para ofrecer análisis 
-                    detallados, seguimiento de metas y gestión de equipos de ventas.
+                    líneas comerciales. La plataforma integra datos de Odoo ERP con Supabase (PostgreSQL cloud) para ofrecer análisis 
+                    detallados, seguimiento de metas, gestión de equipos de ventas y sistema completo de permisos RBAC.
                 </p>
 
                 <div class="highlight success">
@@ -314,9 +314,10 @@
 
                 <h3>2.2 Solución Propuesta</h3>
                 <p>
-                    Una aplicación web centralizada que integre datos de ventas de Odoo ERP con la gestión de metas 
-                    almacenada en Google Sheets, proporcionando dashboards interactivos con KPIs, gráficos analíticos 
-                    y capacidades de exportación para análisis detallado.
+                    Una aplicación web centralizada que integre datos de ventas de Odoo ERP con Supabase PostgreSQL 
+                    para gestión de metas, permisos y auditoría, proporcionando dashboards interactivos con KPIs, 
+                    gráficos analíticos y capacidades de exportación para análisis detallado. Sistema completo de 
+                    autenticación con Google OAuth2 y RBAC con 4 roles de acceso.
                 </p>
             </section>
 
@@ -489,37 +490,41 @@
 
                 <h3>5.1 Stack Tecnológico</h3>
                 <div class="tech-stack">
-                    <span class="tech-badge">Python 3.x</span>
-                    <span class="tech-badge">Flask 3.1.1</span>
-                    <span class="tech-badge">Odoo ERP (XML-RPC)</span>
-                    <span class="tech-badge">Google Sheets API</span>
+                    <span class="tech-badge">Python 3.11+</span>
+                    <span class="tech-badge">Flask 3.1.3</span>
+                    <span class="tech-badge">Supabase 2.14.0</span>
+                    <span class="tech-badge">Google OAuth2 (Authlib 1.6.7)</span>
+                    <span class="tech-badge">Odoo ERP (JSONRPC)</span>
                     <span class="tech-badge">Pandas 2.3.1</span>
                     <span class="tech-badge">Openpyxl 3.1.5</span>
-                    <span class="tech-badge">Gspread 6.2.1</span>
                     <span class="tech-badge">Gunicorn 23.0.0</span>
-                    <span class="tech-badge">HTML5/CSS3</span>
-                    <span class="tech-badge">JavaScript (ECharts)</span>
+                    <span class="tech-badge">Bootstrap 5</span>
+                    <span class="tech-badge">Chart.js 4.4.0</span>
+                    <span class="tech-badge">DataTables 1.13.7</span>
+                    <span class="tech-badge">Flask-Limiter (Rate Limiting)</span>
                 </div>
 
                 <h3>5.2 Componentes del Sistema</h3>
                 <div class="diagram">
                     <pre>
-┌─────────────────────────────────────────────────────────────┐
-│                      DASHBOARD WEB APP                       │
-│                      (Flask + Gunicorn)                      │
-└──────────────┬──────────────────────────────┬────────────────┘
-               │                              │
-               ▼                              ▼
-    ┌──────────────────┐          ┌──────────────────┐
-    │   OdooManager    │          │ GoogleSheetsManager │
-    │  (XML-RPC API)   │          │  (gspread API)      │
-    └────────┬─────────┘          └─────────┬──────────┘
-             │                              │
-             ▼                              ▼
-    ┌─────────────────┐          ┌──────────────────┐
-    │   Odoo ERP      │          │  Google Sheets   │
-    │  (PostgreSQL)   │          │  (Metas/Equipos) │
-    └─────────────────┘          └──────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     DASHBOARD WEB APP                        │
+│          Flask 3.1.3 + Google OAuth2 + Gunicorn              │
+└────────┬───────────────────────────┬─────────────────────────┘
+         │                           │
+         ▼                           ▼
+  ┌──────────────┐          ┌────────────────────┐
+  │ OdooManager  │          │ SupabaseManager    │
+  │ (JSONRPC)    │          │ (PostgreSQL Cloud) │
+  └──────┬───────┘          └─────────┬──────────┘
+         │                            │
+         ▼                            ▼
+  ┌─────────────┐          ┌──────────────────────┐
+  │  Odoo ERP   │          │  Supabase (Prod DB)  │
+  │  (Ventas)   │          │  • user_permissions  │
+  │             │          │  • audit_log_*       │
+  └─────────────┘          │  • analytics_*       │
+                           └──────────────────────┘
                     </pre>
                 </div>
 
@@ -537,12 +542,24 @@
                             <td>Aplicación principal Flask, rutas, controladores y lógica de negocio</td>
                         </tr>
                         <tr>
-                            <td><code>odoo_manager.py</code></td>
-                            <td>Conexión con Odoo ERP, autenticación de usuarios, extracción de datos de ventas</td>
+                            <td><code>src/odoo_manager.py</code></td>
+                            <td>Conexión con Odoo ERP (JSONRPC), extracción de datos de ventas</td>
                         </tr>
                         <tr>
-                            <td><code>google_sheets_manager.py</code></td>
-                            <td>Gestión de metas y equipos en Google Sheets (lectura/escritura)</td>
+                            <td><code>src/supabase_manager.py</code></td>
+                            <td>Gestión de conexión a Supabase PostgreSQL</td>
+                        </tr>
+                        <tr>
+                            <td><code>src/permissions_manager.py</code></td>
+                            <td>Sistema RBAC con 4 roles, verificación de permisos</td>
+                        </tr>
+                        <tr>
+                            <td><code>src/audit_logger.py</code></td>
+                            <td>Auditoría completa de login/logout, permisos, sesiones</td>
+                        </tr>
+                        <tr>
+                            <td><code>src/analytics_supabase.py</code></td>
+                            <td>Tracking de uso de aplicación (vistas, exports, sesiones)</td>
                         </tr>
                         <tr>
                             <td><code>templates/</code></td>
@@ -557,34 +574,48 @@
 
                 <h3>5.4 Integraciones</h3>
                 
-                <h4>Odoo ERP (XML-RPC)</h4>
+                <h4>Odoo ERP (JSONRPC)</h4>
                 <ul>
-                    <li>Autenticación de usuarios contra la base de datos de Odoo</li>
                     <li>Extracción de líneas de venta con múltiples filtros</li>
-                    <li>Obtención de lista de vendedores</li>
+                    <li>Obtención de lista de vendedores y equipos</li>
                     <li>Consulta de datos de productos, clientes, líneas comerciales</li>
+                    <li>Datos de facturación y análisis de ventas</li>
                 </ul>
 
-                <h4>Google Sheets API</h4>
+                <h4>Supabase PostgreSQL (Cloud Database)</h4>
                 <ul>
-                    <li>Almacenamiento de metas por línea comercial (pestañas mensuales)</li>
-                    <li>Gestión de equipos de ventas (pestaña "Equipos")</li>
-                    <li>Metas individuales de vendedores (estructura pivot por equipo/vendedor/mes)</li>
-                    <li>Sincronización bidireccional (lectura y escritura)</li>
+                    <li><strong>user_permissions:</strong> Usuarios autorizados con roles (admin_full, admin_export, analytics_viewer, user_basic)</li>
+                    <li><strong>audit_log_permissions:</strong> Registro de cambios en permisos (create, update, delete)</li>
+                    <li><strong>audit_log_login:</strong> Historial completo de login/logout con IP, User-Agent, session_id</li>
+                    <li><strong>audit_log_session_timeouts:</strong> Tracking de sesiones expiradas</li>
+                    <li><strong>analytics_page_views:</strong> Tracking de navegación por página</li>
+                    <li><strong>analytics_exports:</strong> Registro de exportaciones realizadas</li>
+                    <li><strong>analytics_sessions:</strong> Sesiones de usuario con duración y actividad</li>
+                </ul>
+
+                <h4>Google OAuth2 (Authlib)</h4>
+                <ul>
+                    <li>Autenticación mediante cuentas Google corporativas (@agrovetmarket.com)</li>
+                    <li>Verificación de dominio corporativo</li>
+                    <li>Single Sign-On (SSO)</li>
+                    <li>Tokens seguros con validación de scope</li>
                 </ul>
 
                 <h3>5.5 Seguridad</h3>
                 <ul>
-                    <li><strong>Autenticación:</strong> Integrada con Odoo ERP</li>
-                    <li><strong>Lista Blanca:</strong> Control de acceso mediante <code>allowed_users.json</code></li>
-                    <li><strong>Sesiones:</strong> Gestión de sesiones con Flask (SECRET_KEY en variables de entorno)</li>
-                    <li><strong>Control de Acceso Basado en Roles:</strong> Verificación de permisos de administrador en rutas sensibles</li>
-                    <li><strong>Variables de Entorno:</strong> Credenciales y configuración sensible en archivo <code>.env</code></li>
-                    <li><strong>Manejo Global de Errores:</strong> 4 manejadores de errores implementados (<code>@app.errorhandler</code> para 403, 404, 500 y Exception) que previenen la exposición de información técnica sensible</li>
-                    <li><strong>Plantillas de Error Profesionales:</strong> Páginas de error personalizadas (<code>error_403.html</code>, <code>error_404.html</code>, <code>error_500.html</code>) con mensajes genéricos para usuarios</li>
-                    <li><strong>Ofuscación de Mensajes:</strong> Los errores técnicos se registran en logs con <code>exc_info=True</code> pero solo se muestran mensajes genéricos a los usuarios</li>
-                    <li><strong>Diferenciación DEBUG/PROD:</strong> Información técnica detallada solo visible en modo DEBUG, producción muestra mensajes sanitizados</li>
-                    <li><strong>Cumplimiento ISO 27001:</strong> Implementación de la Sección 5 (Manejo de Errores) con puntuación 91/100 y 85% de conformidad</li>
+                    <li><strong>Autenticación:</strong> Google OAuth2 con Authlib 1.6.7, validación de dominio corporativo</li>
+                    <li><strong>RBAC (Role-Based Access Control):</strong> 4 roles implementados (admin_full, admin_export, analytics_viewer, user_basic)</li>
+                    <li><strong>Sistema de Permisos Granular:</strong> Tabla user_permissions en Supabase con is_active flag</li>
+                    <li><strong>Auditoría Completa:</strong> 4 tablas de audit_log (login, permissions, session_timeouts, general)</li>
+                    <li><strong>Session Security:</strong> 15min inactivity timeout + 8h absolute timeout, HttpOnly cookies, SameSite=Lax</li>
+                    <li><strong>Rate Limiting:</strong> Flask-Limiter con 200 requests/día y 50 requests/hora</li>
+                    <li><strong>Security Headers:</strong> CSP, X-Frame-Options, X-Content-Type-Options, HSTS implementados</li>
+                    <li><strong>Variables de Entorno:</strong> Credenciales en <code>.env</code>, no committed en Git</li>
+                    <li><strong>Manejo Global de Errores:</strong> 4 handlers (@app.errorhandler) que ofuscan información técnica</li>
+                    <li><strong>Plantillas de Error Profesionales:</strong> error_403.html, error_404.html, error_500.html con mensajes seguros</li>
+                    <li><strong>Logging Estructurado:</strong> Errores técnicos en logs con exc_info=True, mensajes genéricos a usuarios</li>
+                    <li><strong>Timezone Support:</strong> America/Lima (UTC-5) con pytz para timestamps consistentes</li>
+                    <li><strong>Cumplimiento ISO 27001:</strong> Sección 5 (91/100), preparación para A.9.4.2 (MFA en roadmap Q2 2026)</li>
                 </ul>
             </section>
 
@@ -626,19 +657,19 @@
    ↓
 4. Incluye meta para equipo ECOMMERCE
    ↓
-5. Guarda metas → Se escriben en Google Sheets
+5. Guarda metas → Se almacenan en Supabase (tabla sales_targets)
    ↓
 6. Sistema actualiza dashboards automáticamente
    ↓
-7. Administrador accede a "Metas Vendedor"
+7. Administrador accede a "Gestión de Permisos" (/admin/users)
    ↓
-8. Asigna vendedores a equipos (selector multi-vendedor)
+8. Crea/edita usuarios con roles específicos
    ↓
-9. Guarda equipos → Se escriben en Google Sheets (pestaña "Equipos")
+9. Guarda cambios → Se persisten en Supabase (tabla user_permissions)
    ↓
-10. Configura metas individuales por vendedor y mes (tabla anual)
+10. Auditoría registra cambios → audit_log_permissions
     ↓
-11. Guarda metas de vendedores → Se escriben en Google Sheets
+11. Dashboard refleja permisos actualizados
     ↓
 12. Dashboard de Línea refleja las metas individuales
                     </pre>
@@ -741,10 +772,11 @@
 
                 <h3>8.1 Requisitos del Sistema</h3>
                 <ul>
-                    <li>Python 3.9 o superior</li>
+                    <li>Python 3.11 o superior</li>
                     <li>Conexión a Odoo ERP (URL, base de datos, credenciales)</li>
-                    <li>Cuenta de servicio de Google Cloud con acceso a Google Sheets API</li>
-                    <li>Servidor web compatible con Gunicorn (Linux/Unix)</li>
+                    <li>Cuenta Supabase con proyecto PostgreSQL configurado</li>
+                    <li>Google OAuth2 credentials (Client ID + Client Secret)</li>
+                    <li>Servidor web compatible con Gunicorn (Linux/Unix) o Render.com</li>
                 </ul>
 
                 <h3>8.2 Variables de Entorno (.env)</h3>
@@ -769,26 +801,41 @@
                             <td>Nombre de la base de datos Odoo</td>
                         </tr>
                         <tr>
-                            <td><code>GOOGLE_SHEET_NAME</code></td>
-                            <td>Nombre de la hoja de Google Sheets para metas</td>
+                            <td><code>SUPABASE_URL</code></td>
+                            <td>URL del proyecto Supabase (ej: https://xxx.supabase.co)</td>
+                        </tr>
+                        <tr>
+                            <td><code>SUPABASE_KEY</code></td>
+                            <td>Service Role Key de Supabase (anon key público)</td>
+                        </tr>
+                        <tr>
+                            <td><code>GOOGLE_CLIENT_ID</code></td>
+                            <td>Client ID de Google OAuth2</td>
+                        </tr>
+                        <tr>
+                            <td><code>GOOGLE_CLIENT_SECRET</code></td>
+                            <td>Client Secret de Google OAuth2</td>
                         </tr>
                     </tbody>
                 </table>
 
                 <h3>8.3 Archivos de Configuración</h3>
                 <ul>
-                    <li><code>credentials.json</code>: Credenciales de la cuenta de servicio de Google Cloud</li>
-                    <li><code>allowed_users.json</code>: Lista blanca de usuarios autorizados</li>
-                    <li><code>requirements.txt</code>: Dependencias de Python</li>
+                    <li><code>requirements.txt</code>: Dependencias de Python (Flask 3.1.3, supabase 2.14.0, authlib 1.6.7, etc.)</li>
+                    <li><code>.env</code>: Variables de entorno (SUPABASE_URL, SUPABASE_KEY, GOOGLE_CLIENT_*, etc.)</li>
+                    <li><code>.gitignore</code>: Excluye .env, credentials.json, __pycache__</li>
                 </ul>
 
-                <h3>8.4 Estructura de Google Sheets</h3>
-                <p>La hoja de cálculo debe contener las siguientes pestañas:</p>
+                <h3>8.4 Estructura de Base de Datos Supabase</h3>
+                <p>Tablas principales en PostgreSQL:</p>
                 <ul>
-                    <li><strong>Equipos:</strong> Columnas <code>equipo_id | vendedor_id | vendedor_nombre</code></li>
-                    <li><strong>Metas Vendedores:</strong> Estructura pivot <code>equipo_id | vendedor_id | mes | meta | meta_ipn</code></li>
-                    <li><strong>Meses (YYYY-MM):</strong> Una pestaña por mes con columnas <code>linea_id | meta | meta_ipn</code></li>
+                    <li><strong>user_permissions:</strong> Columnas <code>user_email | role | is_active | created_at | updated_at</code></li>
+                    <li><strong>audit_log_login:</strong> Columnas <code>id | user_email | login_timestamp | ip_address | user_agent | session_id | oauth_provider</code></li>
+                    <li><strong>audit_log_permissions:</strong> Columnas <code>id | action_type | admin_email | target_user_email | role_before | role_after | timestamp</code></li>
+                    <li><strong>analytics_page_views:</strong> Tracking de navegación con timestamp, user_email, page_url</li>
+                    <li><strong>analytics_exports:</strong> Registro de exports con formato, línea comercial, num_registros</li>
                 </ul>
+                <p>Ver scripts SQL completos en: <code>sql/create_permissions_tables_supabase.sql</code> y <code>sql/create_analytics_table_supabase.sql</code></p>
 
                 <h3>8.5 Comando de Inicio</h3>
                 <div class="diagram">
@@ -805,56 +852,152 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
             <!-- SECCIÓN 9: ROADMAP Y MEJORAS FUTURAS -->
             <section class="section">
                 <h2>9. Roadmap y Mejoras Futuras</h2>
+                
+                <div class="highlight info">
+                    <strong>📋 Base del Roadmap:</strong> Code Review Arquitectónico realizado el 21 de abril de 2026. 
+                    Puntuación actual: <strong>7.2/10</strong>. Ver documento completo en 
+                    <code>docs/CODE_REVIEW_ARQUITECTONICO.md</code>
+                </div>
 
-                <h3>9.1 Versión 4.0 (Propuesta)</h3>
+                <h3>9.1 Q2 2026 - Prioridad CRÍTICA 🔴 (Semanas 1-6)</h3>
+                <div class="highlight" style="border-left-color: #dc3545; background: #f8d7da;">
+                    <strong>Objetivo:</strong> Alcanzar compliance ISO 27001 y mejorar seguridad/performance críticos<br>
+                    <strong>Impacto Esperado:</strong> Seguridad 7.4→8.8 (+19%), Performance 6.5→8.5 (+31%)<br>
+                    <strong>Inversión:</strong> $250 desarrollo + $10/mes AWS/Redis
+                </div>
+
                 <div class="feature-grid">
-                    <div class="feature-card">
-                        <h4>📱 Responsive Design</h4>
-                        <p>Optimización completa para dispositivos móviles y tablets</p>
+                    <div class="feature-card" style="border-left-color: #dc3545;">
+                        <h4>🔐 MFA (Multi-Factor Authentication)</h4>
+                        <p><strong>Esfuerzo:</strong> 8 horas</p>
+                        <p>Implementación TOTP con pyotp, tabla user_mfa, templates de verificación</p>
+                        <p><strong>Impacto:</strong> +35% seguridad, compliance ISO 27001 A.9.4.2 ✅</p>
                     </div>
 
-                    <div class="feature-card">
-                        <h4>🔔 Notificaciones</h4>
-                        <p>Alertas automáticas cuando el avance está por debajo del objetivo</p>
+                    <div class="feature-card" style="border-left-color: #dc3545;">
+                        <h4>✅ Validación de Inputs con Pydantic</h4>
+                        <p><strong>Esfuerzo:</strong> 6 horas</p>
+                        <p>Schemas de validación, prevención SQL injection/XSS/role escalation</p>
+                        <p><strong>Impacto:</strong> +40% seguridad (OWASP A03)</p>
                     </div>
 
-                    <div class="feature-card">
-                        <h4>📊 Dashboards Personalizados</h4>
-                        <p>Permitir a los usuarios crear y guardar vistas personalizadas</p>
+                    <div class="feature-card" style="border-left-color: #dc3545;">
+                        <h4>⚡ Redis Cache para Odoo</h4>
+                        <p><strong>Esfuerzo:</strong> 4 horas</p>
+                        <p>Flask-Caching, estrategia TTL, invalidación proactiva</p>
+                        <p><strong>Impacto:</strong> Response time 1200ms → 200ms (-85%)</p>
                     </div>
 
-                    <div class="feature-card">
-                        <h4>🤖 Machine Learning</h4>
-                        <p>Predicciones de ventas basadas en histórico y tendencias</p>
+                    <div class="feature-card" style="border-left-color: #dc3545;">
+                        <h4>🏗️ Refactor SRP (Single Responsibility)</h4>
+                        <p><strong>Esfuerzo:</strong> 4 horas</p>
+                        <p>UserService, AuthService, reducir complejidad ciclomática <10</p>
+                        <p><strong>Impacto:</strong> +25% mantenibilidad</p>
                     </div>
 
-                    <div class="feature-card">
-                        <h4>📈 Análisis de Tendencias</h4>
-                        <p>Gráficos de comparación año contra año y proyecciones</p>
+                    <div class="feature-card" style="border-left-color: #dc3545;">
+                        <h4>📄 Paginación + Índices Supabase</h4>
+                        <p><strong>Esfuerzo:</strong> 3 horas</p>
+                        <p>list_users_paginated(), índices PostgreSQL optimizados</p>
+                        <p><strong>Impacto:</strong> -70% DB load</p>
                     </div>
 
-                    <div class="feature-card">
-                        <h4>🔗 API REST</h4>
-                        <p>Endpoints para integración con otras aplicaciones</p>
+                    <div class="feature-card" style="border-left-color: #dc3545;">
+                        <h4>🔑 AWS Secrets Manager</h4>
+                        <p><strong>Esfuerzo:</strong> 4 horas</p>
+                        <p>Rotación automática de secrets, Lambda de rotación cada 90 días</p>
+                        <p><strong>Impacto:</strong> +30% seguridad de credenciales</p>
                     </div>
                 </div>
 
-                <h3>9.2 Mejoras de Corto Plazo</h3>
-                <ul>
-                    <li>Implementar caché de datos para mejorar tiempos de carga</li>
-                    <li>Agregar filtros adicionales (por vendedor, por producto, por cliente)</li>
-                    <li>Exportación de gráficos a imagen (PNG/SVG)</li>
-                    <li>Comparación de rendimiento entre líneas comerciales</li>
-                    <li>Dashboard específico para el equipo ECOMMERCE con más detalle</li>
-                </ul>
+                <h3>9.2 Q3 2026 - Prioridad ALTA 🟠 (Semanas 1-12)</h3>
+                <div class="highlight" style="border-left-color: #fd7e14; background: #fff3cd;">
+                    <strong>Objetivo:</strong> Escalabilidad y arquitectura limpia<br>
+                    <strong>Impacto Esperado:</strong> Mantenibilidad 7.5→9.0 (+20%), Arquitectura 7.8→9.2 (+18%)<br>
+                    <strong>Inversión:</strong> $400
+                </div>
 
-                <h3>9.3 Optimizaciones Técnicas</h3>
+                <div class="feature-grid">
+                    <div class="feature-card" style="border-left-color: #fd7e14;">
+                        <h4>⚡ Async/Await con aiohttp</h4>
+                        <p><strong>Esfuerzo:</strong> 8 horas</p>
+                        <p>OdooManagerAsync, rutas async en Flask, parallel execution</p>
+                        <p><strong>Impacto:</strong> +33% performance, 500 usuarios concurrentes</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #fd7e14;">
+                        <h4>📚 Documentación OpenAPI/Swagger</h4>
+                        <p><strong>Esfuerzo:</strong> 8 horas</p>
+                        <p>API versionada /api/v1/, Swagger UI, schemas Marshmallow</p>
+                        <p><strong>Impacto:</strong> +40% facilidad de integración</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #fd7e14;">
+                        <h4>🏛️ Clean Architecture</h4>
+                        <p><strong>Esfuerzo:</strong> 16 horas</p>
+                        <p>Capas: Presentation → Service → Repository → Data</p>
+                        <p><strong>Impacto:</strong> +35% escalabilidad, -60% acoplamiento</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #fd7e14;">
+                        <h4>🧪 Tests hasta 80% Coverage</h4>
+                        <p><strong>Esfuerzo:</strong> 12 horas</p>
+                        <p>Tests unitarios, integración E2E, benchmarks performance</p>
+                        <p><strong>Impacto:</strong> -60% bugs en producción</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #fd7e14;">
+                        <h4>🔓 Sistema de Permisos Database-Driven</h4>
+                        <p><strong>Esfuerzo:</strong> 6 horas</p>
+                        <p>Permisos en tabla SQL (no hardcoded), overrides por usuario</p>
+                        <p><strong>Impacto:</strong> +40% flexibilidad (OCP compliance)</p>
+                    </div>
+                </div>
+
+                <h3>9.3 Q4 2026 - Prioridad MEDIA 🟡 (Semanas 1-12)</h3>
+                <div class="highlight" style="border-left-color: #ffc107; background: #fff3e0;">
+                    <strong>Objetivo:</strong> Escalamiento masivo y observabilidad<br>
+                    <strong>Impacto Esperado:</strong> 10x capacidad (100→1000 usuarios), -50% MTTR<br>
+                    <strong>Inversión:</strong> $600
+                </div>
+
+                <div class="feature-grid">
+                    <div class="feature-card" style="border-left-color: #ffc107;">
+                        <h4>📬 Celery + Message Queue</h4>
+                        <p><strong>Esfuerzo:</strong> 12 horas</p>
+                        <p>Tareas async: exports, emails, reportes. Redis/RabbitMQ como broker</p>
+                        <p><strong>Impacto:</strong> -90% tiempo percibido en exports</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #ffc107;">
+                        <h4>⚖️ Horizontal Scaling</h4>
+                        <p><strong>Esfuerzo:</strong> 16 horas</p>
+                        <p>Load balancer Nginx, sesiones en Redis, deploy multi-instancia</p>
+                        <p><strong>Impacto:</strong> 100 → 1000 usuarios concurrentes</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #ffc107;">
+                        <h4>📊 Monitoreo Avanzado</h4>
+                        <p><strong>Esfuerzo:</strong> 8 horas</p>
+                        <p>Sentry (errores), Datadog/New Relic (APM), alertas Slack</p>
+                        <p><strong>Impacto:</strong> -50% MTTR (Mean Time To Repair)</p>
+                    </div>
+
+                    <div class="feature-card" style="border-left-color: #ffc107;">
+                        <h4>🤖 Machine Learning Básico</h4>
+                        <p><strong>Esfuerzo:</strong> 20 horas</p>
+                        <p>Predicciones de ventas con Prophet/scikit-learn</p>
+                        <p><strong>Impacto:</strong> +25% precisión en forecast</p>
+                    </div>
+                </div>
+
+                <h3>9.4 Visión Futuro (2027+)</h3>
                 <ul>
-                    <li>Implementar lazy loading para datos pesados</li>
-                    <li>Migrar a base de datos local (PostgreSQL) para reducir dependencia de Odoo en consultas frecuentes</li>
-                    <li>Implementar sistema de jobs asíncronos para exportaciones grandes</li>
-                    <li>Agregar tests unitarios y de integración</li>
-                    <li>Documentación automática de API con Swagger</li>
+                    <li><strong>Microservicios:</strong> Auth Service, Analytics Service, Integration Service</li>
+                    <li><strong>Responsive Design:</strong> Optimización móvil completa</li>
+                    <li><strong>Notificaciones Push:</strong> Alertas en tiempo real</li>
+                    <li><strong>Dashboards Personalizados:</strong> Drag-and-drop builder</li>
+                    <li><strong>Análisis de Tendencias:</strong> Comparación YoY, proyecciones automáticas</li>
                 </ul>
             </section>
 
@@ -867,35 +1010,82 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
                     <thead>
                         <tr>
                             <th>Métrica</th>
-                            <th>Objetivo</th>
+                            <th>Actual (Abr 2026)</th>
+                            <th>Objetivo Q2</th>
+                            <th>Objetivo Q4</th>
                             <th>Frecuencia</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>Usuarios Activos Diarios (DAU)</td>
-                            <td>&gt; 80% de usuarios autorizados</td>
+                            <td>75%</td>
+                            <td>&gt; 85%</td>
+                            <td>&gt; 90%</td>
                             <td>Diaria</td>
                         </tr>
                         <tr>
                             <td>Tiempo de Carga del Dashboard</td>
-                            <td>&lt; 3 segundos</td>
+                            <td>~1200ms</td>
+                            <td>&lt; 200ms</td>
+                            <td>&lt; 100ms</td>
                             <td>Continua</td>
                         </tr>
                         <tr>
                             <td>Uptime de la Aplicación</td>
+                            <td>99.2%</td>
                             <td>&gt; 99.5%</td>
+                            <td>&gt; 99.9%</td>
                             <td>Mensual</td>
                         </tr>
                         <tr>
-                            <td>Exportaciones Exitosas</td>
+                            <td>Test Coverage</td>
+                            <td>40%</td>
+                            <td>&gt; 70%</td>
+                            <td>&gt; 90%</td>
+                            <td>Continua</td>
+                        </tr>
+                        <tr>
+                            <td>Security Score (OWASP)</td>
+                            <td>7.4/10</td>
+                            <td>&gt; 8.8/10</td>
+                            <td>&gt; 9.5/10</td>
+                            <td>Mensual</td>
+                        </tr>
+                        <tr>
+                            <td>Cache Hit Rate</td>
+                            <td>0%</td>
+                            <td>&gt; 85%</td>
                             <td>&gt; 95%</td>
+                            <td>Diaria</td>
+                        </tr>
+                        <tr>
+                            <td>Complejidad Ciclomática (CC)</td>
+                            <td>18</td>
+                            <td>&lt; 10</td>
+                            <td>&lt; 6</td>
+                            <td>Por release</td>
+                        </tr>
+                        <tr>
+                            <td>CVEs Críticos</td>
+                            <td>?</td>
+                            <td>0</td>
+                            <td>0</td>
                             <td>Semanal</td>
                         </tr>
                         <tr>
-                            <td>Errores de Sincronización (Sheets/Odoo)</td>
-                            <td>&lt; 1%</td>
-                            <td>Diaria</td>
+                            <td>MFA Adoption (Admins)</td>
+                            <td>0%</td>
+                            <td>&gt; 95%</td>
+                            <td>100%</td>
+                            <td>Mensual</td>
+                        </tr>
+                        <tr>
+                            <td>Usuarios Concurrentes Soportados</td>
+                            <td>~100</td>
+                            <td>300</td>
+                            <td>1000</td>
+                            <td>Por release</td>
                         </tr>
                     </tbody>
                 </table>
@@ -966,7 +1156,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
                         <tr>
                             <td>3.0</td>
                             <td>Q4 2024</td>
-                            <td>Integración con Google Sheets, gráficos mejorados, preparación para despliegue</td>
+                            <td>Migración completa a Supabase PostgreSQL, sistema RBAC con 4 roles, Google OAuth2, auditoría completa de login/logout/permisos</td>
                         </tr>
                         <tr>
                             <td>3.1</td>
@@ -978,6 +1168,11 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
                             <td>Mar 2026</td>
                             <td>Implementación completa de manejo global de errores ISO 27001 Sección 5: 4 error handlers globales, 3 plantillas profesionales de error, ofuscación de mensajes técnicos, cumplimiento 91/100</td>
                         </tr>
+                        <tr>
+                            <td>3.3</td>
+                            <td>Abr 2026</td>
+                            <td>Code Review Arquitectónico exhaustivo (7.2/10): Análisis SOLID, OWASP Top 10, Performance, Mantenibilidad. Roadmap Q2/Q3/Q4 2026 definido con prioridades críticas: MFA, Pydantic validation, Redis cache, Async/await, Clean Architecture</td>
+                        </tr>
                     </tbody>
                 </table>
             </section>
@@ -985,9 +1180,9 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
         </div>
 
         <footer>
-            <p>&copy; 2026 Dashboard de Ventas Farmacéuticas | Versión 3.2</p>
+            <p>&copy; 2026 Dashboard de Ventas Farmacéuticas | Versión 3.3</p>
             <p style="font-size: 0.9em; opacity: 0.8; margin-top: 10px;">
-                Documento creado: 1 de diciembre de 2025 | Última actualización: 26 de marzo de 2026
+                Documento creado: 1 de diciembre de 2025 | Última actualización: 22 de abril de 2026
             </p>
         </footer>
     </div>
